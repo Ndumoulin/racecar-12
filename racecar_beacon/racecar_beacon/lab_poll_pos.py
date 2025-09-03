@@ -17,12 +17,18 @@ class PositionPoller(Node):
         # TODO: Add your subscription(s) here. Use the following syntax:
         #   `self.subscription = self.create_subscription(<type>, <topic>, <self.callback>, 1)`
         self.get_logger().info(f"{self.get_name()} started.")
+        self.subscriptions = self.create_subscription(Odometry, )
+        self.subscriptions = self.create_subscription(Quaternion, )
+        
 
     # TODO: Add your subscription callback(s) here. Use the following syntax:
     #   ```python3
     #    def <callback>(self, msg: <type>) -> None:
     #       pass
     #   ```
+    def odom_callback(self, msg: Odometry) -> None:
+        x_position = msg.pose.pose.position.x
+        y_position = msg.pose.pose.position.y
 
 
 def main(args=None):
