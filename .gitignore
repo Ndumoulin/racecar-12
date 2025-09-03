@@ -1,0 +1,18 @@
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+
+# VS Code workspace files
+.vscode/*.code-workspace
+
+# VS Code extension folders
+.vscode/extensions/
+.vscode-test/
+
+# VS Code server (for remote development)
+.vscode-server/
+.vscode-remote/
+
+# VS Code backup and history
+.vscode/.history/
