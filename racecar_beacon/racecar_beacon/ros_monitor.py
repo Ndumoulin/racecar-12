@@ -70,6 +70,8 @@ class ROSMonitor(Node):
 
         #self.get_logger().info(f"Position -> X: {x_position:.3f}, Y: {y_position:.3f}, Yaw: {yaw:.3f}")
 
+       
+        valid_ranges = [r for r in msg.ranges if msg.range_min < r < msg.range_max]
 
     def laser_callback(self, msg : LaserScan):
         self.obstacle_detected = any(r < 1.0 for r in msg.ranges if r > 0.0)
