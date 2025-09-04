@@ -60,11 +60,12 @@ class ROSMonitor(Node):
 
         roll, pitch, yaw = euler_from_quaternion(Quaternion)
 
-        print(f"Position -> X: {x_position:.3f}, Y: {y_position:.3f}, Yaw: {yaw:.3f}")
+        self.get_logger().info(f"Position -> X: {x_position:.3f}, Y: {y_position:.3f}, Yaw: {yaw:.3f}")
 
 
     def laser_callback(self, msg : LaserScan):
-        pass
+        obsf = any(r < 1.0 for r in msg.ranges if r > 0.0)
+        self.get_logger().info(f"OBSF = {obsf}")
 
     def remote_request_loop(self):
         # NOTE: It is recommended to initialize your socket here.
