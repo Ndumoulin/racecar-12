@@ -11,7 +11,7 @@ import socket
 import threading
 from struct import pack
 
-from racecar_beacon.utils import yaw_from_quaternion
+from racecar_beacon.utils import euler_from_quaternion
 
 
 class ROSMonitor(Node):
@@ -35,11 +35,36 @@ class ROSMonitor(Node):
 
         self.remote_request_t = threading.Thread(target=self.remote_request_loop)
 
-        # TODO: Add your subscription(s) here.
+        self.odom_sub = self.create_subscription(Odometry,
+                                                 "/odometry/filtered",
+                                                 self.odom_callback,
+                                                 10) 
+        
+        self.laser_sub = self.create_subscription(LaserScan,
+                                                  "/scan",
+                                                  self.laser_callback,
+                                                  10)
 
         self.remote_request_t.start()
 
         self.get_logger().info(f"{self.get_name()} started.")
+
+    def odom_callback(self, msg : Odometry):
+        
+        x_position = msg.pose.pose.position.x
+        y_position = msg.pose.pose.position.y
+        
+        # Extract orientation quaternion
+        orientation = msg.pose.pose.orientation
+        Quaternion = [orientation.x, orientation.y, orientation.z, orientation.w]
+
+        roll, pitch, yaw = euler_from_quaternion(Quaternion)
+
+        print(f"Position -> X: {x_position:.3f}, Y: {y_position:.3f}, Yaw: {yaw:.3f}")
+
+
+    def laser_callback(self, msg : LaserScan):
+        pass
 
     def remote_request_loop(self):
         # NOTE: It is recommended to initialize your socket here.
@@ -60,7 +85,7 @@ def main(args=None):
     try:
         rclpy.init(args=args)
         node = ROSMonitor()
-        rclpy.get_default_context().on_shutdown(node.shutdown())
+        rclpy.get_default_context().on_shutdown(node.shutdown)
         rclpy.spin(node)
     except (KeyboardInterrupt, ExternalShutdownException):
         pass
