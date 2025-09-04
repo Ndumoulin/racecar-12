@@ -19,7 +19,7 @@ class ROSMonitor(Node):
         super().__init__("ros_monitor")
 
         # Robot state
-        self.id = int(0xFFFF)
+        self.id = int(0x7F000001)
         self.position = tuple([float(0), float(0), float(0)])
         self.obstacle_detected = bool(False)
 
@@ -32,6 +32,11 @@ class ROSMonitor(Node):
         self.position_broad_port = self.declare_parameter(
             "pos_broadcast_port", 65431
         ).value
+
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+
+        self.create_timer(1.0, self.broadcast_callback)
 
         self.remote_request_t = threading.Thread(target=self.remote_request_loop)
 
@@ -60,15 +65,16 @@ class ROSMonitor(Node):
 
         roll, pitch, yaw = euler_from_quaternion(Quaternion)
 
+        self.position = (x_position, y_position, yaw)
+
         self.get_logger().info(f"Position -> X: {x_position:.3f}, Y: {y_position:.3f}, Yaw: {yaw:.3f}")
 
 
     def laser_callback(self, msg : LaserScan):
-        obsf = any(r < 1.0 for r in msg.ranges if r > 0.0)
-        self.get_logger().info(f"OBSF = {obsf}")
+        self.obstacle_detected = any(r < 1.0 for r in msg.ranges if r > 0.0)
+        self.get_logger().info(f"OBSF = {self.obstacle_detected}")
 
     def remote_request_loop(self):
-        # NOTE: It is recommended to initialize your socket here.
 
         # TODO: Implement the RemoteRequest service here.
         while rclpy.ok():
@@ -76,6 +82,13 @@ class ROSMonitor(Node):
 
     # TODO: Implement the PositionBroadcast service here.
     # NOTE: It is recommended to initializae your socket locally.
+
+    def broadcast_callback(self):
+        x, y, yaw = self.position
+        
+        data = pack(">fffI", x, y, yaw, self.id)
+        self.sock.sendto(data, (self.broadcast, self.position_broad_port))
+
 
     def shutdown(self):
         """Gracefully shutdown the threads BEFORE terminating the node."""
