@@ -33,6 +33,12 @@ class ROSMonitor(Node):
         self.position_broad_port = self.declare_parameter(
             "pos_broadcast_port", 65431
         ).value
+        
+        # UDP socket for broadcasting
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        
+        self.timer = self.create_timer(1.0, self.broadcast_position)
 
         self.s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -85,6 +91,20 @@ class ROSMonitor(Node):
 
     # TODO: Implement the PositionBroadcast service here.
     # NOTE: It is recommended to initializae your socket locally.
+    
+    def broadcast_position(self) -> None:
+        x, y, yaw = self.position
+        obstacle = int(self.obstacle_detected)
+        
+        payload = pack("<fffI", x, y, yaw, self.id)
+        
+        try:
+            self.sock.sendto(payload, (self.broadcast, self.position_broad_port))
+            self.get_logger().debug(
+                f"Sent UDP packet -> ID:{self.id}, X:{x:.2f}, Y:{y:.2f}, Yaw:{yaw:.2f}, Obstacle:{obstacle}"
+            )
+        except OSError as e:
+            self.get_logger().error(f"UDP send failed: {e}")
 
     def broadcast_callback(self):
         x, y, yaw = self.position
