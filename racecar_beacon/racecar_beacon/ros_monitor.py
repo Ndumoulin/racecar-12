@@ -33,8 +33,8 @@ class ROSMonitor(Node):
             "pos_broadcast_port", 65431
         ).value
 
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        self.s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
         self.create_timer(1.0, self.broadcast_callback)
 
@@ -67,12 +67,12 @@ class ROSMonitor(Node):
 
         self.position = (x_position, y_position, yaw)
 
-        self.get_logger().info(f"Position -> X: {x_position:.3f}, Y: {y_position:.3f}, Yaw: {yaw:.3f}")
+        #self.get_logger().info(f"Position -> X: {x_position:.3f}, Y: {y_position:.3f}, Yaw: {yaw:.3f}")
 
 
     def laser_callback(self, msg : LaserScan):
         self.obstacle_detected = any(r < 1.0 for r in msg.ranges if r > 0.0)
-        self.get_logger().info(f"OBSF = {self.obstacle_detected}")
+        #self.get_logger().info(f"OBSF = {self.obstacle_detected}")
 
     def remote_request_loop(self):
 
@@ -86,8 +86,9 @@ class ROSMonitor(Node):
     def broadcast_callback(self):
         x, y, yaw = self.position
         
-        data = pack(">fffI", x, y, yaw, self.id)
-        self.sock.sendto(data, (self.broadcast, self.position_broad_port))
+        data = pack("<fffi", x, y, yaw, self.id)
+        #self.get_logger().info(data)
+        self.s.sendto(data, (self.broadcast, self.position_broad_port))
 
 
     def shutdown(self):
