@@ -35,13 +35,14 @@ class ROSMonitor(Node):
         ).value
         
         # UDP socket for broadcasting
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        self.udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.udp_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         
-        self.timer = self.create_timer(1.0, self.broadcast_position)
-
-        self.s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        # TCP socket for remote requests
+        self.tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.tcp_sock.bind(("127.0.0.1", 65432))   # bind to all interfaces, port 12345
+        self.tcp_sock.listen()
+        conn, addr = self.tcp_sock.accept()
 
         self.create_timer(1.0, self.broadcast_callback)
 
@@ -77,41 +78,34 @@ class ROSMonitor(Node):
         #self.get_logger().info(f"Position -> X: {x_position:.3f}, Y: {y_position:.3f}, Yaw: {yaw:.3f}")
 
        
-        valid_ranges = [r for r in msg.ranges if msg.range_min < r < msg.range_max]
+        
 
     def laser_callback(self, msg : LaserScan):
         self.obstacle_detected = any(r < 1.0 for r in msg.ranges if r > 0.0)
         #self.get_logger().info(f"OBSF = {self.obstacle_detected}")
 
     def remote_request_loop(self):
-
         # TODO: Implement the RemoteRequest service here.
         while rclpy.ok():
+            self.tcp_sock.listen()
             pass
 
     # TODO: Implement the PositionBroadcast service here.
     # NOTE: It is recommended to initializae your socket locally.
-    
-    def broadcast_position(self) -> None:
+
+    def broadcast_callback(self):
         x, y, yaw = self.position
         obstacle = int(self.obstacle_detected)
         
         payload = pack("<fffI", x, y, yaw, self.id)
         
         try:
-            self.sock.sendto(payload, (self.broadcast, self.position_broad_port))
+            self.udp_sock.sendto(payload, (self.broadcast, self.position_broad_port))
             self.get_logger().debug(
                 f"Sent UDP packet -> ID:{self.id}, X:{x:.2f}, Y:{y:.2f}, Yaw:{yaw:.2f}, Obstacle:{obstacle}"
             )
         except OSError as e:
             self.get_logger().error(f"UDP send failed: {e}")
-
-    def broadcast_callback(self):
-        x, y, yaw = self.position
-        
-        data = pack("<fffi", x, y, yaw, self.id)
-        #self.get_logger().info(data)
-        self.s.sendto(data, (self.broadcast, self.position_broad_port))
 
 
     def shutdown(self):
