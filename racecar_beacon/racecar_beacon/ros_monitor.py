@@ -75,10 +75,44 @@ class ROSMonitor(Node):
         #self.get_logger().info(f"OBSF = {self.obstacle_detected}")
 
     def remote_request_loop(self):
+        """TCP server handling RemoteRequest commands (RPOS, OBSF, RBID)."""
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server_socket.bind((self.host, self.remote_request_port))
+        server_socket.listen(1)
 
-        # TODO: Implement the RemoteRequest service here.
+        self.get_logger().info(f"RemoteRequest server listening on {self.host}:{self.remote_request_port}")
+
         while rclpy.ok():
-            pass
+            conn, addr = server_socket.accept()
+            self.get_logger().info(f"RemoteRequest client connected: {addr}")
+            with conn:
+                try:
+                    while True:
+                        # Expect a 4-byte command
+                        cmd = conn.recv(4)
+                        if not cmd:
+                            break
+                        cmd = cmd.decode("utf-8")
+
+                        if cmd == "RPOS":
+                            x, y, yaw = self.position
+                            data = pack("<fffI", x, y, yaw, 0)  # last 4 bytes unused
+                        elif cmd == "OBSF":
+                            val = 1 if self.obstacle_detected else 0
+                            data = pack("<I12x", val)  # uint32 + 12 bytes padding
+                        elif cmd == "RBID":
+                            data = pack("<I12x", self.id)  # uint32 + 12 bytes padding
+                        else:
+                            self.get_logger().warn(f"Unknown command: {cmd}")
+                            data = b"\x00" * 16
+
+                        conn.sendall(data)
+
+                except Exception as e:
+                    self.get_logger().error(f"RemoteRequest error: {e}")
+            self.get_logger().info("Client disconnected")
+
 
     # TODO: Implement the PositionBroadcast service here.
     # NOTE: It is recommended to initializae your socket locally.
@@ -94,6 +128,7 @@ class ROSMonitor(Node):
     def shutdown(self):
         """Gracefully shutdown the threads BEFORE terminating the node."""
         self.remote_request_t.join()
+        
 
 
 def main(args=None):
