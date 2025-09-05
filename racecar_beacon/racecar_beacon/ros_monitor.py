@@ -33,8 +33,11 @@ class ROSMonitor(Node):
             "pos_broadcast_port", 65431
         ).value
 
-        self.s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        self.s_UDP = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        self.s_UDP.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+
+        self.s_TCP = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.s_TCP.bind((self.host, self.remote_request_port))
 
         self.create_timer(1.0, self.broadcast_callback)
 
@@ -75,20 +78,36 @@ class ROSMonitor(Node):
         #self.get_logger().info(f"OBSF = {self.obstacle_detected}")
 
     def remote_request_loop(self):
+        self.s_TCP.listen()  # le socket serveur est prêt à écouter
+        print("Serveur RemoteRequest en écoute...")
 
-        # TODO: Implement the RemoteRequest service here.
         while rclpy.ok():
-            pass
+            conn, addr = self.s_TCP.accept()
+            print(f"Connexion acceptée de {addr}")
 
-    # TODO: Implement the PositionBroadcast service here.
-    # NOTE: It is recommended to initializae your socket locally.
+            with conn:
+                while True:
+                    msg = conn.recv(1024)
+                    if not msg:
+                        break  # Client closed connected
+
+                    command = msg.decode().strip()
+                    print(f"Commande reçue: {command}")
+
+                    if command == "RPOS":
+                        response = pack("!fff", 1.23, 4.56, 0.78)
+                        conn.sendall(response)
+                    else:
+                        # Réponse texte générique
+                        conn.sendall(f"Commande inconnue: {command}".encode())
+
 
     def broadcast_callback(self):
         x, y, yaw = self.position
         
         data = pack("<fffi", x, y, yaw, self.id)
         #self.get_logger().info(data)
-        self.s.sendto(data, (self.broadcast, self.position_broad_port))
+        self.s_UDP.sendto(data, (self.broadcast, self.position_broad_port))
 
 
     def shutdown(self):

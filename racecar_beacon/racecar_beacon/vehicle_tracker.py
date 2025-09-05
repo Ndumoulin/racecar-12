@@ -14,12 +14,12 @@ NOTES:
 def main():
     # TODO: Implement the PositionBroadcast client here.
     listen_addr = ("", 65431)
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     s.bind(listen_addr)
 
     try:
         while True:
-            data, addr = s.recvfrom(1024)  # buffer max 1024 bytes
+            data, addr = s.recvfrom(1024)
             if len(data) == 16:
                 x, y, yaw, id = unpack("<fffi", data)
                 print(f"Received from {addr}: X={x:.2f}, Y={y:.2f}, Yaw={yaw:.2f}, id={id}")
