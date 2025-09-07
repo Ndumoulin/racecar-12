@@ -15,6 +15,8 @@ from racecar_beacon.utils import euler_from_quaternion
 
 
 class ROSMonitor(Node):
+    """Node that monitors odometry and laser scan data, broadcasts robot's position and handles remote requests"""
+
     def __init__(self):
         super().__init__("ros_monitor")
 
@@ -23,7 +25,7 @@ class ROSMonitor(Node):
         self.position = tuple([float(0), float(0), float(0)])
         self.obstacle_detected = bool(False)
 
-        # Socket parameters
+        # Socket parameters (change IP values heres depending on the computer)
         self.host = self.declare_parameter("host", "127.0.0.1").value
         self.remote_request_port = self.declare_parameter(
             "remote_request_port", 65432
@@ -33,6 +35,8 @@ class ROSMonitor(Node):
             "pos_broadcast_port", 65431
         ).value
 
+
+        #UDP socket for broadcast
         self.s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
@@ -40,6 +44,7 @@ class ROSMonitor(Node):
 
         self.remote_request_t = threading.Thread(target=self.remote_request_loop)
 
+        #Subscriptions
         self.odom_sub = self.create_subscription(Odometry,
                                                  "/odometry/filtered",
                                                  self.odom_callback,
@@ -59,7 +64,7 @@ class ROSMonitor(Node):
         x_position = msg.pose.pose.position.x
         y_position = msg.pose.pose.position.y
         
-        # Extract orientation quaternion
+        
         orientation = msg.pose.pose.orientation
         Quaternion = [orientation.x, orientation.y, orientation.z, orientation.w]
 
@@ -74,8 +79,9 @@ class ROSMonitor(Node):
         self.obstacle_detected = any(r < 1.0 for r in msg.ranges if r > 0.0)
         #self.get_logger().info(f"OBSF = {self.obstacle_detected}")
 
+
     def remote_request_loop(self):
-        """TCP server handling RemoteRequest commands (RPOS, OBSF, RBID)."""
+        """TCP server handling RemoteRequest commands"""
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server_socket.bind((self.host, self.remote_request_port))
@@ -113,9 +119,6 @@ class ROSMonitor(Node):
                     self.get_logger().error(f"RemoteRequest error: {e}")
             self.get_logger().info("Client disconnected")
 
-
-    # TODO: Implement the PositionBroadcast service here.
-    # NOTE: It is recommended to initializae your socket locally.
 
     def broadcast_callback(self):
         x, y, yaw = self.position
