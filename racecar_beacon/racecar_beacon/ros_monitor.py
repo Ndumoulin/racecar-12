@@ -90,12 +90,12 @@ class ROSMonitor(Node):
         self.get_logger().info(f"RemoteRequest server listening on {self.host}:{self.remote_request_port}")
 
         while rclpy.ok():
-            conn, addr = server_socket.accept()
+            conn, addr = server_socket.accept() #nothing happens until client connects
             self.get_logger().info(f"RemoteRequest client connected: {addr}")
             with conn:
                 try:
                     while True:
-                        # Expect a 4-byte command
+                        
                         cmd = conn.recv(4)
                         if not cmd:
                             break
@@ -103,12 +103,12 @@ class ROSMonitor(Node):
 
                         if cmd == "RPOS":
                             x, y, yaw = self.position
-                            data = pack("<fffI", x, y, yaw, 0)  # last 4 bytes unused
+                            data = pack("<fffI", x, y, yaw, 0)  
                         elif cmd == "OBSF":
                             val = 1 if self.obstacle_detected else 0
-                            data = pack("<I12x", val)  # uint32 + 12 bytes padding
+                            data = pack("<I12x", val)  
                         elif cmd == "RBID":
-                            data = pack("<I12x", self.id)  # uint32 + 12 bytes padding
+                            data = pack("<I12x", self.id)  
                         else:
                             self.get_logger().warn(f"Unknown command: {cmd}")
                             data = b"\x00" * 16

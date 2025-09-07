@@ -10,9 +10,8 @@ NOTES:
 - A socket MUST be closed BEFORE exiting the process.
 """
 
-
 def main():
-    # TODO: Implement the PositionBroadcast client here.
+    
     listen_addr = ("", 65431)
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.bind(listen_addr)
