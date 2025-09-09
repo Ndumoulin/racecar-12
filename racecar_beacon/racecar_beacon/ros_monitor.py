@@ -76,6 +76,7 @@ class ROSMonitor(Node):
 
 
     def laser_callback(self, msg : LaserScan):
+        self.get_logger().info(msg.ranges)
         self.obstacle_detected = any(r < 1.0 for r in msg.ranges if r > 0.0)
         #self.get_logger().info(f"OBSF = {self.obstacle_detected}")
 
