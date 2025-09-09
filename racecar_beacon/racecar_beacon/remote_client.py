@@ -30,13 +30,13 @@ def main():
                 continue
 
             if cmd == "RPOS":
-                x, y, yaw, _ = unpack("<fffI", data)
+                x, y, yaw, _ = unpack(">fffI", data)
                 print(f"Position -> X={x:.2f}, Y={y:.2f}, Yaw={yaw:.2f}")
             elif cmd == "OBSF":
-                val, = unpack("<I", data[:4])
+                val, = unpack(">I", data[:4])
                 print(f"Obstacle detected: {bool(val)}")
             elif cmd == "RBID":
-                rid, = unpack("<I", data[:4])
+                rid, = unpack(">I", data[:4])
                 print(f"Robot ID: {rid}")
 
 if __name__ == "__main__":

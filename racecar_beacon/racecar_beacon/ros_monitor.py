@@ -26,11 +26,11 @@ class ROSMonitor(Node):
         self.obstacle_detected = bool(False)
 
         # Socket parameters (change IP values heres depending on the computer)
-        self.host = self.declare_parameter("host", "127.0.0.1").value
+        self.host = self.declare_parameter("host", "10.0.1.20").value
         self.remote_request_port = self.declare_parameter(
             "remote_request_port", 65432
         ).value
-        self.broadcast = self.declare_parameter("broadcast", "127.0.0.255").value
+        self.broadcast = self.declare_parameter("broadcast", "10.0.1.255").value
         self.position_broad_port = self.declare_parameter(
             "pos_broadcast_port", 65431
         ).value
@@ -46,12 +46,12 @@ class ROSMonitor(Node):
 
         #Subscriptions
         self.odom_sub = self.create_subscription(Odometry,
-                                                 "/odometry/filtered",
+                                                 "/racecar/odom/filtered",
                                                  self.odom_callback,
                                                  10) 
         
         self.laser_sub = self.create_subscription(LaserScan,
-                                                  "/scan",
+                                                  "/racecar/scan",
                                                   self.laser_callback,
                                                   10)
 
@@ -103,12 +103,12 @@ class ROSMonitor(Node):
 
                         if cmd == "RPOS":
                             x, y, yaw = self.position
-                            data = pack("<fffI", x, y, yaw, 0)  
+                            data = pack(">fffI", x, y, yaw, 0)  
                         elif cmd == "OBSF":
                             val = 1 if self.obstacle_detected else 0
-                            data = pack("<I12x", val)  
+                            data = pack(">I12x", val)  
                         elif cmd == "RBID":
-                            data = pack("<I12x", self.id)  
+                            data = pack(">I12x", self.id)  
                         else:
                             self.get_logger().warn(f"Unknown command: {cmd}")
                             data = b"\x00" * 16
@@ -123,7 +123,7 @@ class ROSMonitor(Node):
     def broadcast_callback(self):
         x, y, yaw = self.position
         
-        data = pack("<fffi", x, y, yaw, self.id)
+        data = pack(">fffi", x, y, yaw, self.id)
         #self.get_logger().info(data)
         self.s.sendto(data, (self.broadcast, self.position_broad_port))
 

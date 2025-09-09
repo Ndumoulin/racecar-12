@@ -20,7 +20,7 @@ def main():
         while True:
             data, addr = s.recvfrom(1024)  # buffer max 1024 bytes
             if len(data) == 16:
-                x, y, yaw, id = unpack("<fffi", data)
+                x, y, yaw, id = unpack(">fffi", data)
                 print(f"Received from {addr}: X={x:.2f}, Y={y:.2f}, Yaw={yaw:.2f}, id={id}")
             else:
                 print(f"Received unexpected packet size {len(data)} from {addr}")
