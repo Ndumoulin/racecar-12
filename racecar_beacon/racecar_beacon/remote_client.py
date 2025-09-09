@@ -3,7 +3,7 @@
 import socket
 from struct import unpack
 
-SERVER_HOST = "127.0.0.1"
+SERVER_HOST = "10.0.1.20"
 SERVER_PORT = 65432
 
 def main():
