@@ -115,14 +115,14 @@ class Teleop(Node):
             elif(joy_msg.buttons[9]):   
                 # Reset Encoder
                 self.cmd_msg.linear.x  = 7.0
-                self.cmd_msg.angular.z = 0.0
+                self.cmd_msg.angular.z = steering_user_input
                 self.cmd_msg.linear.z  = 9.0  # Control mode
                 
             #If button back is active 
             elif(joy_msg.buttons[8]):   
                 # Reset Encoder
                 self.cmd_msg.linear.x  = 6.0
-                self.cmd_msg.angular.z = 0.0
+                self.cmd_msg.angular.z = steering_user_input
                 self.cmd_msg.linear.z  = 8.0  # Control mode
                 
             #If left trigger is active 
