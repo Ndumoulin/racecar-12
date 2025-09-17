@@ -121,7 +121,7 @@ class Teleop(Node):
             #If button back is active 
             elif(joy_msg.buttons[8]):   
                 # Reset Encoder
-                self.cmd_msg.linear.x  = 5.0
+                self.cmd_msg.linear.x  = 6.0
                 self.cmd_msg.angular.z = 0.0
                 self.cmd_msg.linear.z  = 8.0  # Control mode
                 
