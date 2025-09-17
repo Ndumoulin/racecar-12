@@ -14,27 +14,17 @@ from racecar_beacon.utils import yaw_from_quaternion
 class PositionPoller(Node):
     def __init__(self):
         super().__init__("position_poller")
-
-        self.odom_sub = self.create_subscription(Odometry, "/odometry/filtered", self.odom_callback, 10) 
+        # TODO: Add your subscription(s) here. Use the following syntax:
+        #   `self.subscription = self.create_subscription(<type>, <topic>, <self.callback>, 1)`
         self.get_logger().info(f"{self.get_name()} started.")
-        
 
-    def odom_callback(self, msg: Odometry) -> None:
-        
-        x_position = msg.pose.pose.position.x
-        y_position = msg.pose.pose.position.y
-        
-        # Extract orientation quaternion
-        orientation = msg.pose.pose.orientation
-        Quaternion = [orientation.x, orientation.y, orientation.z, orientation.w]
-
-        roll, pitch, yaw = euler_from_quaternion(Quaternion)
-
-        print(f"Position -> X: {x_position:.3f}, Y: {y_position:.3f}, Yaw: {yaw:.3f}")
+    # TODO: Add your subscription callback(s) here. Use the following syntax:
+    #   ```python3
+    #    def <callback>(self, msg: <type>) -> None:
+    #       pass
+    #   ```
 
 
-    
-        
 def main(args=None):
     try:
         rclpy.init(args=args)
