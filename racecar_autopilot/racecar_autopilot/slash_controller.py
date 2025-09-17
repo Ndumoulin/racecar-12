@@ -160,7 +160,14 @@ class SlashController(Node):
 
                 self.steering_cmd = 0 + self.steering_offset
                 self.propulsion_cmd = 0
-                self.arduino_mode = 0  # Mode ??? on arduino
+                self.arduino_mode = 1
+            
+            elif self.high_level_mode == 9:
+                # Template for custom controllers
+
+                self.steering_cmd = 0 + self.steering_offset
+                self.propulsion_cmd = 0
+                self.arduino_mode = 1 
 
         self.send_arduino()
 
