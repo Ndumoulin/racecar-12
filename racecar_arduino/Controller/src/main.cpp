@@ -57,11 +57,11 @@ void sensorsCallback(unsigned long dt);
 
 // TODO: VOUS DEVEZ DETERMINEZ DES BONS PARAMETRES SUIVANTS
 const float filter_rc  = 0.1;
-const float vel_kp     = 11.1;
-const float vel_ki     = 18.6;
+const float vel_kp     = 8.1;
+const float vel_ki     = 5.0;
 const float vel_kd     = 0.0;
-const float pos_kp     = 80.0;
-const float pos_kd     = 21.6;
+const float pos_kp     = 9.3;
+const float pos_kd     = 4.0;
 const float pos_ki     = 0.0;
 const float pos_ei_sat = 10000.0;
 
