@@ -69,7 +69,7 @@ class Teleop(Node):
                 GRO501-1: closed-loop velocity fixed @ X m/s, open-loop
                 steering, where X is determined "on-site".
                 """
-                self.cmd_msg.linear.x = 2.0 # m/s
+                self.cmd_msg.linear.x = 1.5 # m/s
                 self.cmd_msg.angular.z = steering_user_input * self.cmd2rad
                 self.cmd_msg.linear.z = 0.0 # high-level mode
                 
