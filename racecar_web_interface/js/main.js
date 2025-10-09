@@ -4,6 +4,25 @@ var velocityCmdTopic = null;
 
 // Calls added inside the anynonymous function are triggered after the page is loaded
 $(document).ready(() => {document.getElementById("log").value = "Default text\n"});
+btnavancer = document.getElementById("avancer");
+btnarreter = document.getElementById("arreter");
+btneffacer = document.getElementById("effacer");
+statusbox = document.getElementById("status");
+
+btnavancer.addEventListener("click", () => {
+    statusbox.innerText += "Avancer\n";
+    statusbox.parentElement.scrollTop = statusbox.parentElement.scrollHeight;
+});
+
+btnarreter.addEventListener("click", () => {
+    statusbox.innerText += "Arrêter\n";
+    statusbox.parentElement.scrollTop = statusbox.parentElement.scrollHeight;
+});
+
+btneffacer.addEventListener("click", () => {
+    statusbox.innerText = "";
+    statusbox.parentElement.scrollTop = statusbox.parentElement.scrollHeight;
+});
 
 // rosbridge / roslibjs function to connect to ROS
 function connectROS()
