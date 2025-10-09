@@ -38,3 +38,34 @@ setInterval(() => {
         velocityCmdTopic.publish(twist);
     }
 }, 200);
+
+//---Status Lights Logic---
+
+// Get light elements
+const goLight = document.getElementById("go-light");
+const stopLight = document.getElementById("stop-light");
+
+// Get buttons
+const startButton = document.querySelector(".start-button");
+const stopButton = document.querySelector(".stop-button");
+
+// Default state when page starts
+window.addEventListener("load", function() {
+    stopLight.classList.add("on-stop");
+    goLight.classList.remove("on-go");
+});
+
+// Start button logic
+startButton.addEventListener("click", function() {
+    goLight.classList.add("on-go");
+    stopLight.classList.remove("on-stop");
+});
+
+// Stop button logic
+stopButton.addEventListener("click", function() {
+    stopLight.classList.add("on-stop");
+    goLight.classList.remove("on-go");
+});
+
+
+

@@ -22,30 +22,67 @@
 </head>
 
 <body>
-    <!-- Menu BEGIN-->
-    <div class="collapse" id="navbarToggleExternalContent">
-        <div class="bg-dark p-4">
-            <h6 class="text-white h4">Configuration</h6>
+
+    <!-- Collapsible Menu BEGIN -->
+    <div class="collapse bg-dark" id="navbarToggleExternalContent">
+        <div class="p-4 text-white">
+            <h4>Racecar Configuration</h4>
+
+            <!-- IP Configuration -->
+            <div class="mt-3">
+                <label for="ipAddressInput">Racecar IP:</label>
+                <input type="text" id="ipAddressInput" class="form-control form-control-sm config-input" placeholder="192.168.x.x">
+                <button class="btn btn-primary btn-sm mt-2" id="connectButton" onclick="connectROS()">Connect</button>
+
+            </div>
         </div>
     </div>
+    <!-- Collapsible Menu END -->
 
+    <!-- Navbar BEGIN -->
     <nav class="navbar navbar-dark bg-dark">
-        <div>
-            <button class="navbar-toggler" type="button" data-toggle="collapse"
-                data-target="#navbarToggleExternalContent">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-        </div>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarToggleExternalContent">
+            <span class="navbar-toggler-icon"></span>
+        </button>
     </nav>
-    <!-- Menu END-->
+    <!-- Navbar END -->
 
-    <!-- Main layout BEGIN-->
-    <div class="container-fluid">
+    <!-- Main layout BEGIN -->
+    <div class="row text-center">
+        <!-- Control Section -->
+        <div class="col-4 section-control border">
+            <h2>Control</h2>
+            <button class="start-button">Start</button>
+            <button class="stop-button">Stop</button>
+        </div>
+
+        <!-- Status Section -->
+        <div class="col-4 section-status border">
+            <h2>Status</h2>
+            <div class="status-light-container">
+                <div id="go-light" class="light"></div>
+                <span>GO</span>
+            </div>
+            <div class="status-light-container">
+                <div id="stop-light" class="light"></div>
+                <span>STOP</span>
+            </div>
+        </div>
+
+        <!-- Camera Feed Section -->
+        <div class="col-4 section-camera border">
+            <h2>Camera Feed</h2>
+            <div class="Video">
+
+                <img src="http://localhost:8080/stream?topic=/racecar/camera" alt="Camera Feed">
+            </div>
+        </div>
     </div>
-    <!-- Main layout END-->
+    <!-- Main layout END -->
 
-    <!-- vvv Use this file for your scripts vvv-->
+    <!-- Main JS -->
     <script type="text/javascript" src="js/main.js"></script>
+
 </body>
 
 </html>

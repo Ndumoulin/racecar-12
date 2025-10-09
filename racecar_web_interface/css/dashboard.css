@@ -96,3 +96,96 @@ body {
   border-color: transparent;
   box-shadow: 0 0 0 3px rgba(255, 255, 255, .25);
 }
+
+.section-control,
+.section-status,
+.section-camera {
+  height: 80vh;        /* Full screen height minus navbar */
+  padding: 20px;
+}
+
+.section-control {
+  background-color: #f8f9fa;
+}
+
+.section-status {
+  background-color: #e9ecef;
+}
+
+.section-camera {
+  background-color: #dee2e6;
+}
+
+.config-input {
+  width: 200px;
+  background-color: #fff;
+  color: #000;
+}
+
+
+/* Control section */
+
+.start-button {
+  background-color: #28a745;   /* Green */
+  color: white;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+  margin: 10px;
+}
+
+.start-button:hover {
+  background-color: #218838;   /* Darker green */
+}
+
+.stop-button {
+  background-color: #dc3545;   /* Red */
+  color: white;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+  margin: 10px;
+}
+
+.stop-button:hover {
+  background-color: #c82333;   /* Darker red */
+}
+
+
+
+/* Status section */
+
+.status-light-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 10px 0;
+}
+
+.light {
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  border: 2px solid #000;
+  margin-right: 10px;
+  background-color: grey;  /* Default OFF */
+}
+
+.light.on-go {
+  background-color: green;
+}
+
+.light.on-stop {
+  background-color: red;
+}
+
+/* Camera feed section */
+
+
+
+
+
