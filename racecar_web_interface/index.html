@@ -40,9 +40,40 @@
     <!-- Menu END-->
 
     <!-- Main layout BEGIN-->
+
+
     <div class="container-fluid">
+
+        <!-- Main layout END-->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card fixed-card">
+                    <div class="card-block">
+                        <h1 class="card-header">Status</h1>
+                        <div class="scrollable-content" id="scrollable-content">
+                            <p class="card-text" id="status"></p>
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-warning" id="effacer" type="reset">Effacer</button>
+
+                <div class="row"></div>
+                <h2>Contrôle de la voiture</h2>
+                <button class="btn btn-success" id="avancer" type="submit">Avancer</button>
+                <button class="btn btn-danger" id="arreter" type="submit">Arrêter</button>
+            </div>
+            <div class="col-md-6">
+                <div class="card fixed-card">
+                    <div class="card-block">
+                        <h1 class="card-header">Caméra</h1>
+                        <img class="card-img-top" id="camera" src="http://192.168.1.1:8080/stream" alt="Camera stream">
+                    </div>
+            </div>
+        </div>
     </div>
-    <!-- Main layout END-->
+
+
+
 
     <!-- vvv Use this file for your scripts vvv-->
     <script type="text/javascript" src="js/main.js"></script>
