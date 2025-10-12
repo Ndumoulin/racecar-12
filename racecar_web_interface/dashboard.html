@@ -22,14 +22,24 @@
 </head>
 
 <body>
-    <!-- Main layout BEGIN-->
-    <div class="container-fluid">
 
-        <label>DASHBOARD</label>
+    <!-- Header -->
+    <nav class="navbar navbar-dark bg-dark">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">DASHBOARD</span>
+            <span class="text-light" id="userInfo"></span>
+            <span class="badge bg-secondary ms-3" id="connectionStatus">Déconnecté</span>
+        </div>
+    </nav>
+
+    <!-- Main layout BEGIN-->
+    <div class="container-fluid mt-3">
+        <p>Welcome to the Racecar Dashboard!</p>
+        <!-- Other dashboard content goes here -->
     </div>
     <!-- Main layout END-->
 
-    <!-- vvv Use this file for your scripts vvv-->
+    <!-- Scripts -->
     <script type="text/javascript" src="js/dashboard.js"></script>
 </body>
 
