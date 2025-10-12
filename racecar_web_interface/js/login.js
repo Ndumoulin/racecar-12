@@ -15,8 +15,8 @@ $(document).ready(() => {
     form.addEventListener("submit", function (event) {
         event.preventDefault(); // Prevent page refresh
 
-        const ipAddress = document.getElementById("ipAddress").value.trim();
         const username = document.getElementById("username").value.trim();
+        const ipAddress = document.getElementById("ipAddress").value.trim();
 
         // IPv4 validation regex (0–255.0–255.0–255.0–255)
         const ipRegex = /^(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3}$/;
@@ -26,14 +26,15 @@ $(document).ready(() => {
             return;
         }
 
-        statusMessage.innerHTML = `<span class="text-success">IP valide, tentative de connexion...</span>`;
+            statusMessage.innerHTML = `<span class="text-warning">Trying to connect to server ... </span>`;
 
         // Connect to ROS bridge
-        connectROS(ipAddress, username);
+        connectROS(username, ipAddress , statusMessage);
     });
 });
+
 // rosbridge / roslibjs function to connect to ROS
-function connectROS(ipAddress, username) {
+function connectROS(username, ipAddress, statusMessage) {
     // Connect to the rosbridge server running on localhost, on port 9090
     // HINT: The rosbridge server SHOULD be closed when disconnecting from ROS
 
@@ -41,6 +42,11 @@ function connectROS(ipAddress, username) {
 
     rosbridgeServer.on("connection", () => {
         console.log("Connected to WebSocket server.");
+
+        sessionStorage.setItem("ros_ip", ipAddress);
+        sessionStorage.setItem("ros_username", username);
+
+        window.location.href = 'dashboard.html';
 
         // Create a topic object to send propulsion commands to the racecar
         velocityCmdTopic = new ROSLIB.Topic(
@@ -50,6 +56,8 @@ function connectROS(ipAddress, username) {
     rosbridgeServer.on(
         "error", (error) => {
             console.log("Error connecting to WebSocket server: ", error);
+            statusMessage.innerHTML = `<span class="text-danger">Impossible to connect to server </span>`;
+
         });
 
     rosbridgeServer.on("close", () => {
