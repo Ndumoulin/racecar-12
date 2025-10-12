@@ -19,7 +19,7 @@
         <script src="js/virtualjoystick.js"></script>
         <script src="js/roslib.min.js"></script> <!-- rosbridge -->
 
-        <title>GRO525 | Laboratoire</title>
+        <title>GRO525 | Login</title>
     </head>
 
     <!-- Main layout BEGIN-->
@@ -27,14 +27,20 @@
         <div class="container-fluid">
             <form>
                 <div class="form-group">
-                    <label for="ip-adress">IP adress</label>
-                    <input type="ip-adress" class="form-control" id="ip-adress"
-                        placeholder="Enter IP adress">
+                    <label for="ip-adress">IP address</label>
+                    <input type="text" class="form-control" id="ip-adress"
+                        placeholder="Enter IP address">
+                </div>
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" class="form-control" id="username"
+                        placeholder="Enter username">
                 </div>
                 <div class="row justify-content-center">
                     <button type="submit"
                         class="btn btn-primary"
-                        id="submit-button">Submit</button>
+                        id="submit-button"
+                        href="dashboard.html">Submit</button>
                 </div>
             </form>
             <div class="row justify-content-center">
@@ -46,8 +52,9 @@
             </div>
 
         </div>
-        <!-- vvv Use this file for your scripts vvv-->
-        <script type="text/javascript" src="js/main.js"></script>
+    <!-- vvv Use this file for your scripts vvv-->
+    <script type="text/javascript" src="js/common.js"></script>
+    <script type="text/javascript" src="js/login.js"></script>
     </body>
 
 </html>

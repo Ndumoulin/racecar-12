@@ -18,14 +18,14 @@
     <script src="js/virtualjoystick.js"></script>
     <script src="js/roslib.min.js"></script> <!-- rosbridge -->
 
-    <title>GRO525 | Laboratoire</title>
+    <title>GRO525 | Dashboard</title>
 </head>
 
 <body>
     <!-- Menu BEGIN-->
     <div class="collapse" id="navbarToggleExternalContent">
         <div class="bg-dark p-4">
-            <h6 class="text-white h4">Configuration</h6>
+            <h6 class="text-white h4"></h6>
         </div>
     </div>
 
@@ -35,18 +35,19 @@
                 data-target="#navbarToggleExternalContent">
                 <span class="navbar-toggler-icon"></span>
             </button>
+            <a class="navbar-brand mx-auto text-white" id="navbar">GRO525 | Dashboard</a>
         </div>
     </nav>
     <!-- Menu END-->
 
     <!-- Main layout BEGIN-->
-
-
     <div class="container-fluid">
-        
+        <div id="joystick-container">
+        </div>
     </div>
     <!-- vvv Use this file for your scripts vvv-->
-    <script type="text/javascript" src="js/main.js"></script>
+    <script type="text/javascript" src="js/common.js"></script>
+    <script type="text/javascript" src="js/dashboard.js"></script>
 </body>
 
 </html>

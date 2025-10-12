@@ -2,30 +2,57 @@
 var rosbridgeServer = null;
 var velocityCmdTopic = null;
 
+// Safe helpers to get elements if present
+function $(id) { return document.getElementById(id); }
+
 // Calls added inside the anynonymous function are triggered after the page is loaded
-$(document).ready(() => { document.getElementById("log").value = "Default text\n" });
+document.addEventListener('DOMContentLoaded', function() {
+    // Setup login page behavior if elements exist
+    var btnsubmit = $('submit-button');
+    var statusbox = $('status-block');
+    var ipInput = $('ip-adress');
+    var usernameInput = $('username');
 
-btnsubmit = document.getElementById("submit-button");
-statusbox = document.getElementById("status-block");
+    if (btnsubmit && ipInput && usernameInput) {
+        btnsubmit.addEventListener('click', function(event) {
+            event.preventDefault();
+            var ipadress = ipInput.value.trim();
+            var username = usernameInput.value.trim();
 
-btnsubmit.addEventListener("click", (event) => {
-    event.preventDefault();
-    ipadress = document.getElementById("ip-adress").value.trim();
+            const ipRegex = /^(25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)){3}$/;
 
-    const ipRegex = /^(25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)){3}$/;
+            if (!ipRegex.test(ipadress)) {
+                if (statusbox) statusbox.innerText = "Adresse IP invalide — format attendu: x.x.x.x (0-255)\n";
+                return;
+            }
 
-    if (!ipRegex.test(ipadress)) {
-        statusbox.innerText = "Adresse IP invalide — format attendu: x.x.x.x (0-255)\n";
-        return;
+            // Persist login info locally so other pages can read it
+            try {
+                localStorage.setItem('racecar_username', username);
+                localStorage.setItem('racecar_ip', ipadress);
+            } catch (e) {
+                console.warn('localStorage unavailable', e);
+            }
+
+            // Save IP for connectROS() and attempt connection
+            rosMasterIp = ipadress;
+            if (statusbox) statusbox.innerText = "Connexion à " + ipadress + "...\n";
+            connectROS();
+        });
     }
 
-    // Save IP for connectROS() and attempt connection
-    rosMasterIp = ipadress;
-    statusbox.innerText = "Connexion à " + ipadress + "...\n";
-
-    connectROS();
-
+    updatenavbar();
 });
+
+function updatenavbar() {
+    var navbar = $('navbar');
+    if (!navbar) return;
+    var username = localStorage.getItem('racecar_username') || '';
+    var ip = localStorage.getItem('racecar_ip') || '';
+    if (username || ip) {
+        navbar.innerText = "Welcome: " + username + (username && ip ? '@' : '') + ip;
+    }
+}
 
 // rosbridge / roslibjs function to connect to ROS
 function connectROS() {
@@ -35,6 +62,8 @@ function connectROS() {
 
     rosbridgeServer.on("connection", () => {
         console.log("Connected to WebSocket server.");
+
+    window.location.href= "dashboard.html";
 
         // Create a topic object to send propulsion commands to the racecar
         velocityCmdTopic = new ROSLIB.Topic(
