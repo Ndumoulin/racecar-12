@@ -28,9 +28,13 @@ function connectToRos() {
 
     const ros = new ROSLIB.Ros({ url: "ws://" + ip + ":9090" });
 
+
     ros.on("connection", function() {
         statusMessage.textContent = "Connected to ROS";
         statusMessage.className = "status success";
+
+        window.location.href = "index.html"; 
+
     });
 
     ros.on("error", function(error) {
@@ -39,7 +43,7 @@ function connectToRos() {
     });
 
     ros.on("close", function() {
-        statusMessage.textContent = "Connection closed.";
+        statusMessage.textContent = "Connection failed.";
         statusMessage.className = "status error";
     });
 }
