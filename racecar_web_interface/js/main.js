@@ -3,40 +3,42 @@ var rosbridgeServer = null;
 var velocityCmdTopic = null;
 
 // Calls added inside the anynonymous function are triggered after the page is loaded
-$(document).ready(() => {document.getElementById("log").value = "Default text\n"});
-btnavancer = document.getElementById("avancer");
-btnarreter = document.getElementById("arreter");
-btneffacer = document.getElementById("effacer");
-statusbox = document.getElementById("status");
+$(document).ready(() => { document.getElementById("log").value = "Default text\n" });
 
-btnavancer.addEventListener("click", () => {
-    statusbox.innerText += "Avancer\n";
-    statusbox.parentElement.scrollTop = statusbox.parentElement.scrollHeight;
-});
+btnsubmit = document.getElementById("submit-button");
+statusbox = document.getElementById("status-block");
 
-btnarreter.addEventListener("click", () => {
-    statusbox.innerText += "Arrêter\n";
-    statusbox.parentElement.scrollTop = statusbox.parentElement.scrollHeight;
-});
+btnsubmit.addEventListener("click", (event) => {
+    event.preventDefault();
+    ipadress = document.getElementById("ip-adress").value.trim();
 
-btneffacer.addEventListener("click", () => {
-    statusbox.innerText = "";
-    statusbox.parentElement.scrollTop = statusbox.parentElement.scrollHeight;
+    const ipRegex = /^(25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)){3}$/;
+
+    if (!ipRegex.test(ipadress)) {
+        statusbox.innerText = "Adresse IP invalide — format attendu: x.x.x.x (0-255)\n";
+        return;
+    }
+
+    // Save IP for connectROS() and attempt connection
+    rosMasterIp = ipadress;
+    statusbox.innerText = "Connexion à " + ipadress + "...\n";
+
+    connectROS();
+
 });
 
 // rosbridge / roslibjs function to connect to ROS
-function connectROS()
-{
+function connectROS() {
     // Connect to the rosbridge server running on localhost, on port 9090
     // HINT: The rosbridge server SHOULD be closed when disconnecting from ROS
-    rosbridgeServer = new ROSLIB.Ros({url : "ws://" + rosMasterIp + ":9090"});
+    rosbridgeServer = new ROSLIB.Ros({ url: "ws://" + rosMasterIp + ":9090" });
 
     rosbridgeServer.on("connection", () => {
         console.log("Connected to WebSocket server.");
 
         // Create a topic object to send propulsion commands to the racecar
         velocityCmdTopic = new ROSLIB.Topic(
-            {ros : rosbridgeServer, name : "/prop_cmd", messageType : "geometry_msgs/Twist"});
+            { ros: rosbridgeServer, name: "/prop_cmd", messageType: "geometry_msgs/Twist" });
     });
 
     rosbridgeServer.on(
@@ -47,7 +49,7 @@ function connectROS()
 
 // Create a message that conforms to the `Twist` structure defined in ROS.
 var twist = new ROSLIB.Message(
-    {linear : {x : 0.0, y : 0.0, z : 2.0}, angular : {x : 0.0, y : 0.0, z : 0.0}});
+    { linear: { x: 0.0, y: 0.0, z: 2.0 }, angular: { x: 0.0, y: 0.0, z: 0.0 } });
 
 // Add timer callbacks here
 setInterval(() => {
@@ -57,3 +59,4 @@ setInterval(() => {
         velocityCmdTopic.publish(twist);
     }
 }, 200);
+
