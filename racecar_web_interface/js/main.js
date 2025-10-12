@@ -39,6 +39,7 @@ setInterval(() => {
     }
 }, 200);
 
+
 //---Status Lights Logic---
 
 // Get light elements
@@ -66,6 +67,7 @@ stopButton.addEventListener("click", function() {
     stopLight.classList.add("on-stop");
     goLight.classList.remove("on-go");
 });
+
 
 
 

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="fr-CA">
+
+<head>
+    <!-- Required meta tags -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/config.css">
+
+    <!-- JavaScript - Import Dependencies -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="js/jquery-3.3.1.slim.min.js"></script>
+    <script src="js/popper.min.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/virtualjoystick.js"></script>
+    <script src="js/roslib.min.js"></script> <!-- rosbridge -->
+    <script src="js/config.js"></script>
+
+    <title>Racecar Configuration</title>
+</head>
+
+<body>
+    <div class="login-container">
+        <h2>Racecar Connexion</h2>
+
+        <div class="form-group">
+            <label>Racecar Number</label>
+            <input type="text" id="usernameInput" class="form-control" placeholder="12">
+        </div>
+
+        <div class="form-group">
+            <label>Racecar IP Number</label>
+            <input type="text" id="ipAddressInput" class="form-control" placeholder="192.168.x.x">
+        </div>
+
+        <button id="connectButton" class="btn btn-primary btn-block">Connect</button>
+
+        <!-- Zone d'état de connexion -->
+        <div id="statusMessage" class="status"></div>
+    </div>
+
+    
+
+    <!-- Script de connexion -->
+    <script src="js/login.js"></script>
+</body>
+</html>
