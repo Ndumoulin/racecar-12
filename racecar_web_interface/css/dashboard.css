@@ -95,6 +95,48 @@ body {
 .form-control-dark:focus {
   border-color: transparent;
   box-shadow: 0 0 0 3px rgba(255, 255, 255, .25);
-
-  .
 }
+
+
+.fixed-card {
+  width: 20rem;
+  height: 20rem;
+  display: flex;
+  flex-direction: column; /* Organise les enfants verticalement */
+  background-color: #f7f7f7;
+  border: 1px solid #c7c7c7;
+  border-radius: 0.25rem;
+}
+
+.card-header {
+  flex-shrink: 0; /* Empêche le titre de se redimensionner */
+  background-color: #343a40; /* Fond sombre pour le titre */
+  color: white; /* Texte blanc */
+  padding: 0.5rem; /* Espacement interne */
+  text-align: center;
+  font-size: 1.5rem;
+}
+
+.scrollable-content {
+  flex-grow: 1; /* Permet au contenu de prendre l'espace restant */
+  overflow-y: auto; /* Ajoute un défilement vertical si nécessaire */
+  padding: 0.5rem; /* Espacement interne pour le contenu */
+  scroll-behavior: smooth;
+}
+
+.video-container {
+    position: relative;
+    width: 100%; /* Prend toute la largeur de la colonne */
+    padding-top: 56.25%; /* Ratio 16:9 pour le lecteur vidéo */
+}
+
+.video-container img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%; /* Rend le flux vidéo responsive */
+    height: 100%; /* Maintient le ratio 16:9 */
+    border: 2px solid #000; /* Ajoute une bordure noire */
+    border-radius: 8px; /* Coins arrondis */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Ajoute une ombre */
+  }
