@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="fr-CA">
+
+    <head>
+        <!-- Required meta tags -->
+        <meta charset="UTF-8">
+        <meta name="viewport"
+            content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+
+        <!-- CSS -->
+        <link rel="stylesheet" href="css/bootstrap.min.css">
+        <link rel="stylesheet" href="css/dashboard.css">
+
+        <!-- JavaScript - Import Dependencies -->
+        <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+        <script src="js/jquery-3.3.1.slim.min.js"></script>
+        <script src="js/popper.min.js"></script>
+        <script src="js/bootstrap.min.js"></script>
+        <script src="js/virtualjoystick.js"></script>
+        <script src="js/roslib.min.js"></script> <!-- rosbridge -->
+
+        <title>GRO525 | Laboratoire</title>
+    </head>
+
+    <!-- Main layout BEGIN-->
+    <body>
+        <div class="container-fluid">
+            <form>
+                <div class="form-group">
+                    <label for="ip-adress">IP adress</label>
+                    <input type="ip-adress" class="form-control" id="ip-adress"
+                        placeholder="Enter IP adress">
+                </div>
+                <div class="row justify-content-center">
+                    <button type="submit"
+                        class="btn btn-primary"
+                        id="submit-button">Submit</button>
+                </div>
+            </form>
+            <div class="row justify-content-center">
+                <div class="card">
+                    <div class="card-block">
+                        <p class="card-text" id="status-block"></p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <!-- vvv Use this file for your scripts vvv-->
+        <script type="text/javascript" src="js/main.js"></script>
+    </body>
+
+</html>
