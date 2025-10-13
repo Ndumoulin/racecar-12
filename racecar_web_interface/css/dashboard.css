@@ -126,3 +126,11 @@ body {
   height: 6px;
   border-radius: 4px;
 }
+
+.section-title {
+    font-family: Helvetica, Arial, sans-serif;  
+    font-size: 24px;    
+    font-weight: bold;
+    color: black;    
+       
+}
