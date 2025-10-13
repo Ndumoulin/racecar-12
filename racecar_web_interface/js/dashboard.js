@@ -42,13 +42,13 @@ $(document).ready(() => {
   // Initialiser le topic pour les commandes de vitesse
   const velocityCmdTopic = new ROSLIB.Topic({
     ros: rosbridgeServer,
-    name: "/racecar/cmd_vel_abtr_2",
+    name: "/ctl_ref",
     messageType: "geometry_msgs/Twist",
   });
 
   // Créer un message Twist
   const twist = new ROSLIB.Message({
-    linear: { x: 0.0, y: 0.0, z: 0.0 },
+    linear: { x: 0.0, y: 0.0, z: 7.0 },
     angular: { x: 0.0, y: 0.0, z: 0.0 },
   });
 
