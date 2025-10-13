@@ -46,10 +46,11 @@ $(document).ready(() => {
         messageType: 'geometry_msgs/Twist' // Type de message
     });
 
-    // Vérifiez si le conteneur du joystick existe avant d'initialiser
+    // Initialiser le joystick
+    let joystick = null;
     const joystickContainer = document.getElementById('joystick');
     if (joystickContainer) {
-        const joystick = new VirtualJoystick({
+        joystick = new VirtualJoystick({
             container: joystickContainer,
             mouseSupport: true, // Permet d'utiliser la souris pour tester
             stationaryBase: true, // Le joystick reste fixe
@@ -58,30 +59,31 @@ $(document).ready(() => {
             limitStickTravel: true, // Limite le déplacement du joystick
             stickRadius: 100 // Rayon maximal du joystick
         });
-
-        // Créer un message Twist
-        const twist = new ROSLIB.Message({
-            linear: { x: 0.0, y: 0.0, z: 0.0 },
-            angular: { x: 0.0, y: 0.0, z: 0.0 }
-        });
-
-        // Écouter les mouvements du joystick et publier les commandes
-        setInterval(() => {
-            if (velocityCmdTopic != null) {
-                const deltaX = joystick.deltaX(); // Déplacement horizontal
-                const deltaY = joystick.deltaY(); // Déplacement vertical
-
-                // Mettre à jour les valeurs du message Twist
-                twist.linear.x = deltaY / 100; // Normaliser deltaY
-                twist.angular.z = -deltaX / 100; // Normaliser deltaX
-
-                // Publier le message
-                velocityCmdTopic.publish(twist);
-                console.log(`Command sent: linear.x=${twist.linear.x}, angular.z=${twist.angular.z}`);
-            }
-        }, 200); // Publier toutes les 200 ms
+        console.log("Joystick initialized.");
     } else {
         console.error("Joystick container not found.");
     }
+
+    // Créer un message Twist
+    const twist = new ROSLIB.Message({
+        linear: { x: 0.0, y: 0.0, z: 0.0 },
+        angular: { x: 0.0, y: 0.0, z: 0.0 }
+    });
+
+    // Écouter les mouvements du joystick et publier les commandes
+    setInterval(() => {
+        if (joystick && velocityCmdTopic != null) {
+            const deltaX = joystick.deltaX(); // Déplacement horizontal
+            const deltaY = joystick.deltaY(); // Déplacement vertical
+
+            // Mettre à jour les valeurs du message Twist
+            twist.linear.x = deltaY / 100; // Normaliser deltaY
+            twist.angular.z = -deltaX / 100; // Normaliser deltaX
+
+            // Publier le message
+            velocityCmdTopic.publish(twist);
+            console.log(`Command sent: linear.x=${twist.linear.x}, angular.z=${twist.angular.z}`);
+        }
+    }, 200); // Publier toutes les 200 ms
 });
 
