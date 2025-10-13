@@ -37,19 +37,30 @@
         <div class="row">
             <!-- Colonne de gauche : Status et Contrôle -->
             <div class="col-md-6">
-                <div class="card fixed-card">
-                    <h1 class="card-header text-center">Status</h1>
-                    <div class="card-body scrollable-content">
-                        <p id="outputText" class="mt-3"></p>
+                <label for="speed_range">Speed</label>
+
+                <div class="control-container" style="width: 100%;">
+                    <!-- Speed range slider -->
+                    <input type="range" id="speed_range" name="volume" min="0" max="100"
+                        style="width: 100%; margin-top: 5px;">
+
+                    <!-- Arrow button grid -->
+                    <div class="arrow-grid"
+                        style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px;">
+                        <button class="arrow-btn" id="arrow-up-left">↖</button>
+                        <button class="arrow-btn" id="arrow-up">↑</button>
+                        <button class="arrow-btn" id="arrow-up-right">↗</button>
+                        <button class="arrow-btn" id="arrow-down-left">↙</button>
+                        <button class="arrow-btn" id="arrow-down">↓</button>
+                        <button class="arrow-btn" id="arrow-down-right">↘</button>
                     </div>
-                    <button type="button" class="btn btn-dark" id="effacer">Effacer</button>
-                </div>
-                <div class="row mt-2">
-                    <div class="col text">
-                        <h1>Contrôle</h1>
-                        <button type="button" class="btn btn-dark" id="avancer">Avancer</button>
-                        <button type="button" class="btn btn-dark" id="arreter">Arrêter</button>
-                    </div>
+
+                    <button id="stop-button" style="width: 100%; margin-top: 20px; padding: 15px 0; font-size: 20px;
+                       font-weight: bold; color: white; background-color: #d9534f;
+                       border: none; border-radius: 8px; cursor: pointer;
+                       transition: background-color 0.2s;">
+                        STOP
+                    </button>
                 </div>
             </div>
 

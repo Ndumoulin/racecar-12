@@ -96,3 +96,27 @@ body {
   border-color: transparent;
   box-shadow: 0 0 0 3px rgba(255, 255, 255, .25);
 }
+
+.arrow-btn {
+  font-size: 24px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  background-color: #f0f0f0;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.arrow-btn:hover {
+  background-color: #d9d9d9;
+}
+
+.arrow-btn:active {
+  background-color: #bfbfbf;
+}
+
+#speed_range {
+  accent-color: #007bff;
+  height: 6px;
+  border-radius: 4px;
+}
