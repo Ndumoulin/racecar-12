@@ -42,9 +42,10 @@ $(document).ready(() => {
     // Initialiser le topic pour les commandes de vitesse
     const velocityCmdTopic = new ROSLIB.Topic({
         ros: rosbridgeServer,
-        name: '/cmd_vel', // Nom du topic ROS
+        name: '/racecar/cmd_vel_abtr_2', // Nom du topic ROS
         messageType: 'geometry_msgs/Twist' // Type de message
     });
+
 
     // Initialiser le joystick
     let joystick = null;
