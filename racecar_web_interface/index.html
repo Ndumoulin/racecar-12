@@ -19,34 +19,29 @@
     <script src="js/roslib.min.js"></script> <!-- rosbridge -->
     <script src="js/config.js"></script>
 
-    <title>GRO525 | Laboratoire</title>
+    <title>Dashboard</title>
 </head>
 
 <body>
 
-    <!-- Collapsible Menu BEGIN -->
-    <div class="collapse bg-dark" id="navbarToggleExternalContent">
-        <div class="p-4 text-white">
-            <h4>Racecar Configuration</h4>
 
-            <!-- IP Configuration -->
-            <div class="mt-3">
-                <label for="ipAddressInput">Racecar IP:</label>
-                <input type="text" id="ipAddressInput" class="form-control form-control-sm config-input" placeholder="192.168.x.x">
-                <button class="btn btn-primary btn-sm mt-2" id="connectButton" onclick="connectROS()">Connect</button>
+ <nav class="navbar">
+  <div class="navbar__container">
+    
 
-            </div>
-        </div>
+      <!-- LOGO -->
+    <a href="#" id="navbar__logo">
+      <img src="images/images.png" alt="Racecar Logo">
+    </a>
+
+    <!-- Info utilisateur -->
+    <div class="navbar__info">
+      <span>User: <strong id="navbar-username">N/A</strong></span>
+      <span>IP: <strong id="navbar-ip">N/A</strong></span>
+      <span>Status: <strong id="navbar-status">Connecting...</strong></span>
     </div>
-    <!-- Collapsible Menu END -->
-
-    <!-- Navbar BEGIN -->
-    <nav class="navbar navbar-dark bg-dark">
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarToggleExternalContent">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-    </nav>
-    <!-- Navbar END -->
+  </div>
+</nav>
 
     <!-- Main layout BEGIN -->
     <div class="row text-center">
@@ -57,18 +52,7 @@
             <button class="stop-button">Stop</button>
         </div>
 
-        <!-- Status Section -->
-        <div class="col-4 section-status border">
-            <h2>Status</h2>
-            <div class="status-light-container">
-                <div id="go-light" class="light"></div>
-                <span>GO</span>
-            </div>
-            <div class="status-light-container">
-                <div id="stop-light" class="light"></div>
-                <span>STOP</span>
-            </div>
-        </div>
+    
 
         <!-- Camera Feed Section -->
         <div class="col-4 section-camera border">

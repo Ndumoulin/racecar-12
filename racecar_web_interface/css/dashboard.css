@@ -18,7 +18,7 @@ body {
   z-index: 100;
   /* Height of navbar */
   padding: 48px 0 0;
-  box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
+  box-shadow: inset -1px 0 0 rgba(0, 0, 0);
 }
 
 .sidebar-sticky {
@@ -72,29 +72,42 @@ body {
  * Navbar
  */
 
-.navbar-brand {
-  padding-top: .75rem;
-  padding-bottom: .75rem;
+.navbar {
+  background: #1a1a1a;
+  height: 70px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 999;
+}
+
+.navbar__container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 70px;
+  width: 100%;
+  max-width: 1300px;
+  padding: 0 40px;
+}
+
+#navbar__logo img {
+  height: 50px;  
+  width: auto;
+  display: block;
+}
+
+.navbar__info {
+  color: #ffffff;
   font-size: 1rem;
-  background-color: rgba(0, 0, 0, .25);
-  box-shadow: inset -1px 0 0 rgba(0, 0, 0, .25);
+  display: flex;
+  gap: 20px;
 }
 
-.navbar .form-control {
-  padding: .75rem 1rem;
-  border-width: 0;
-  border-radius: 0;
-}
-
-.form-control-dark {
-  color: #fff;
-  background-color: rgba(255, 255, 255, .1);
-  border-color: rgba(255, 255, 255, .1);
-}
-
-.form-control-dark:focus {
-  border-color: transparent;
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, .25);
+.navbar__info span strong {
+  color: #91D5C1;
 }
 
 .section-control,
@@ -184,8 +197,4 @@ body {
 }
 
 /* Camera feed section */
-
-
-
-
 
