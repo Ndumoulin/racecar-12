@@ -87,12 +87,12 @@ $(document).ready(() => {
 
   function avancer_droite() {
     twist.linear.x = speedValue;
-    twist.angular.z = -1.0;
+    twist.angular.z = -0.6;
   }
 
   function avancer_gauche() {
     twist.linear.x = speedValue;
-    twist.angular.z = 1.0;
+    twist.angular.z = 0.6;
   }
 
   function reculer() {
@@ -102,12 +102,12 @@ $(document).ready(() => {
 
   function reculer_droite() {
     twist.linear.x = -speedValue;
-    twist.angular.z = 1.0;
+    twist.angular.z = -0.6;
   }
 
   function reculer_gauche() {
     twist.linear.x = -speedValue;
-    twist.angular.z = -1.0;
+    twist.angular.z = 0.6;
   }
 
   // Fonction pour arrêter le robot
