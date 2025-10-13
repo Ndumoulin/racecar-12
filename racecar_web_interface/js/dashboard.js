@@ -60,7 +60,7 @@ $(document).ready(() => {
 
   // Mettre à jour la vitesse lorsque le slider change
   speedRange.addEventListener("input", (event) => {
-    speedValue = parseFloat(event.target.value) / 100; // Normaliser entre 0 et 1
+    speedValue = (parseFloat(event.target.value) / 100*2)+2; // Normaliser entre 0 et 1
     console.log(`Vitesse actuelle : ${speedValue}`);
   });
 
