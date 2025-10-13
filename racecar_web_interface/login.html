@@ -9,6 +9,7 @@
     <!-- CSS -->
     <link rel="stylesheet" href="css/bootstrap.min.css">
     <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/config.css">
 
     <!-- JavaScript - Import Dependencies -->
     <!-- jQuery first, then Popper.js, then Bootstrap JS -->
@@ -18,32 +19,37 @@
     <script src="js/virtualjoystick.js"></script>
     <script src="js/roslib.min.js"></script> <!-- rosbridge -->
 
-    <title>GRO525 | Login</title>
+    <title>Racecar Login</title>
 </head>
 
 <body>
 
     <!-- Main layout BEGIN-->
-    <div class="container-fluid">
-        <div class="login">
-            <h4 class="login-title mt-3">Connexion au Racecar</h4>
+     <div class="login-container">
+        <h2>Racecar Connexion</h2>
 
-            <form id="loginForm">
-                <div class="form-group mb-3">
-                    <label for="username">Nom d'utilisateur</label>
-                    <input type="text" class="form-control" id="username" placeholder="Entrez votre nom" required>
-                </div>
+        <!-- IMPORTANT: Restored form for JS -->
+        <form id="loginForm">
 
-                <div class="form-group mb-3">
-                    <label for="ipAddress">Adresse IP</label>
-                    <input type="text" class="form-control" id="ipAddress" placeholder="Ex: 192.168.0.10" required>
-                </div>
+            <div class="form-group">
+                <label>Racecar Number</label>
+                <!-- FIXED ID -->
+                <input type="text" id="username" class="form-control" placeholder="12">
+            </div>
 
-                <button type="submit" class="btn btn-primary w-100" id="connectBtn">Se connecter</button>
-            </form>
+            <div class="form-group">
+                <label>Racecar IP Number</label>
+                <!-- FIXED ID -->
+                <input type="text" id="ipAddress" class="form-control" placeholder="192.168.x.x">
+            </div>
 
-            <div class="mt-3 text-center" id="statusMessage"></div>
-        </div>
+            <!-- FIXED ID on button -->
+            <button id="connectBtn" type="submit" class="btn btn-primary btn-block">Connect</button>
+
+        </form>
+
+        <!-- Connection status area -->
+        <div id="statusMessage" class="status"></div>
     </div>
     <!-- Main layout END-->
 
