@@ -7,20 +7,22 @@ from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, Opaq
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from xml.dom.minidom import Document
 
 
 def launch_setup(context, *args, **kwargs):
     # Declare launch arguments
     prefix = LaunchConfiguration('prefix').perform(context)
 
-    # Package Directories    
+    # Package Directories
     racecar_description = get_package_share_directory('racecar_description')
-    racecar_gazebo = get_package_share_directory('racecar_gazebo')
+    # racecar_gazebo = get_package_share_directory('racecar_gazebo')  # NOTE: Unused.
     racecar_navigation = get_package_share_directory('racecar_navigation')
 
     # Parse robot description from xacro
     robot_description_file = os.path.join(racecar_description, 'urdf', 'racecar.xacro')
     robot_description_config = xacro.process_file(robot_description_file)
+    assert isinstance(robot_description_config, Document)
     robot_description = {'robot_description': robot_description_config.toxml()}
 
     # Ros2 bridge
@@ -90,14 +92,14 @@ def launch_setup(context, *args, **kwargs):
     )
 
 
-    gaz_control = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([os.path.join(racecar_gazebo, 'launch', 'gazebo_control.launch.py')]),
-    )
-    
+    # gaz_control = IncludeLaunchDescription(
+    #     PythonLaunchDescriptionSource([os.path.join(racecar_gazebo, 'launch', 'gazebo_control.launch.py')]),
+    # )  # NOTE: Does nothing.
+
     kalmanFilter = IncludeLaunchDescription(
                         PythonLaunchDescriptionSource([os.path.join(racecar_navigation, 'launch', 'kalmanFilter.launch.py')]),
                         launch_arguments={"odom_topic":f'/{prefix}/odom/filtered',
-                                          "use_sim_time":"True"}.items()       
+                                          "use_sim_time":"True"}.items()
                     )
 
     return [
@@ -108,7 +110,7 @@ def launch_setup(context, *args, **kwargs):
         cmd_vel_arb,
         joystick,
         teleop,
-        gaz_control,
+        # gaz_control,
         kalmanFilter
     ]
 
