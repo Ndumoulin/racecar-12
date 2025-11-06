@@ -422,6 +422,18 @@ void ctl(int dt_low)
 
         dri_pwm = pwm_zer_dri;
     }
+
+    ///////////////////////////////////////////////////////
+    else if (ctl_mode == 5)
+    {
+        float vel_ref, vel_error;
+        vel_error = vel_ref - vel_fil;
+
+        dri_cmd = 8.222 * vel_error
+
+        dri_pwm = cmd2pwm(dri_cmd);
+    }
+
     ////////////////////////////////////////////////////////
     else
     {
