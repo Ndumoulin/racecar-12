@@ -33,9 +33,12 @@ class SlashController(Node):
         # Controller
         self.steering_offset = 0.0  # To adjust according to the vehicle
         
-        self.K_autopilot = np.array([0.316,  0.538])
+        self.K_autopilot = np.array([0.316,  -0.538])
 
-        self.K_parking = None  # TODO: DESIGN PLACEMENT DE POLES
+        self.K_parking = np.array([
+            [-1.0, -1.96*10**(-5), -1.96*10**(-4)],
+            [1.31*10**(-5), 0.375 , 0.6]
+        ])
 
         # Memory
 
@@ -105,13 +108,13 @@ class SlashController(Node):
 
                 # Auto-pilot # 1
 
-                x = np.array([self.laser_y], [self.laser_theta], dtype=float)
-                r = np.array([0.0], [0.0], dtype=float)
-                u = np.array([self.servo_cmd], dtype=float)
+                x = np.array([[self.laser_y], [self.laser_theta]])
+                r = np.array([[0.0], [0.0]])
+                u = np.array([[self.servo_cmd]])
 
                 u = self.controller1(x, r)
 
-                self.steering_cmd = u[0] + self.steering_offset
+                self.steering_cmd = u[0]
                 self.propulsion_cmd = self.propulsion_ref
                 self.arduino_mode = 5  # Mode ??? on arduino
                 
@@ -124,18 +127,15 @@ class SlashController(Node):
 
                 # Parking
 
-                # x = [ ?,? ,.... ]
-                # r = [ ?,? ,.... ]
-                # u = [ servo_cmd , prop_cmd ]
-
-                x = None
-                r = None
-
+                x = np.array([[self.position],[self.laser_y], [self.laser_theta]])
+                r = np.array([[2.0], [0.0], [0.0]])
+                u = np.array([[self.propulsion_cmd], [self.steering_cmd]])
+                
                 u = self.controller2(x, r)
 
                 self.steering_cmd = u[1] + self.steering_offset
                 self.propulsion_cmd = u[0]
-                self.arduino_mode = 2  # Mode ??? on arduino
+                self.arduino_mode = 2  
 
             elif self.high_level_mode == 6:
                 # Reset encoders
@@ -166,13 +166,11 @@ class SlashController(Node):
         return u
 
     #######################################
-    def controller2(self, y, r):
+    def controller2(self, x, r):
 
         # Control Law TODO
 
-        u = np.array([0, 0])  # placeholder
-
-        # u = self.K_parking  @ (r - x)
+        u = self.K_parking  @ (r - x)
 
         return u
 
