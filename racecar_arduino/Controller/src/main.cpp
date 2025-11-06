@@ -1,4 +1,3 @@
-
 //=========================HEADER=============================================================
 // Firmware for the Arduino managing the propulsion of the slash platform (UdeS Racecar)
 //============================================================================================
@@ -57,11 +56,11 @@ void sensorsCallback(unsigned long dt);
 
 // TODO: VOUS DEVEZ DETERMINEZ DES BONS PARAMETRES SUIVANTS
 const float filter_rc  = 0.1;
-const float vel_kp     = 10.0;
-const float vel_ki     = 0.0;
+const float vel_kp     = 8.1;
+const float vel_ki     = 5.0;
 const float vel_kd     = 0.0;
-const float pos_kp     = 1.0;
-const float pos_kd     = 0.0;
+const float pos_kp     = 9.3;
+const float pos_kd     = 4.0;
 const float pos_ki     = 0.0;
 const float pos_ei_sat = 10000.0;
 
@@ -339,10 +338,13 @@ void ctl(int dt_low)
 
     // Velocity computation
 
-    // TODO: VOUS DEVEZ COMPLETEZ LA DERIVEE FILTRE ICI
     float vel_raw = (enc_now - enc_old) * tick2m / dt_low * 1000;
-    float alpha   = 0;       // TODO
-    float vel_fil = vel_raw; // Filter TODO
+    float alpha   = 0.9f; // poids de l'ancien filtré
+    static float vel_fil_prev = 0.0f;
+
+    float vel_fil = alpha * vel_fil_prev + (1.0f - alpha) * vel_raw;
+
+    vel_fil_prev = vel_fil;
 
     // Propulsion Controllers
 
@@ -371,43 +373,42 @@ void ctl(int dt_low)
     //////////////////////////////////////////////////////
     else if (ctl_mode == 2)
     {
-        // Low-level Velocity control
-        // Commands received in [m/sec] setpoints
+        // Commande de vitesse bas niveau
+        // Consignes reçues en [m/s]
 
         float vel_ref, vel_error;
+        vel_ref   = dri_ref;
+        vel_error = vel_ref - vel_fil;
 
-        // TODO: VOUS DEVEZ COMPLETEZ LE CONTROLLEUR SUIVANT
-        vel_ref       = dri_ref;
-        vel_error     = vel_ref - vel_fil;
-        vel_error_int = 0;                  // TODO
-        dri_cmd       = vel_kp * vel_error; // proportionnal only
+        // Terme intégral - dt_low est en millisecondes, conversion en secondes
+        vel_error_int += vel_error * (dt_low / 1000.0f);
+
+        // Saturation anti-windup
+        float vel_int_max = 8.0;
+        vel_error_int = constrain(vel_error_int, -vel_int_max, vel_int_max);
+
+        // Loi de commande PI
+        dri_cmd = vel_kp * vel_error + vel_ki * vel_error_int;
 
         dri_pwm = cmd2pwm(dri_cmd);
     }
     ///////////////////////////////////////////////////////
     else if (ctl_mode == 3)
     {
-        // Low-level Position control
-        // Commands received in [m] setpoints
+        // Commande de position bas niveau
+        // Consignes reçues en [m]
 
         float pos_ref, pos_error, pos_error_ddt;
-
-        // TODO: VOUS DEVEZ COMPLETEZ LE CONTROLLEUR SUIVANT
         pos_ref       = dri_ref;
-        pos_error     = 0; // TODO
-        pos_error_ddt = 0; // TODO
-        pos_error_int = 0; // TODO
+        pos_error     = pos_ref - pos_now;       // Erreur de position
+        pos_error_ddt = -vel_fil;                // Dérivée de l’erreur = -vitesse
 
-        // Anti wind-up
-        if (pos_error_int > pos_ei_sat)
-        {
-            pos_error_int = pos_ei_sat;
-        }
-
-        dri_cmd = 0; // TODO
+        // Loi de commande PD : u = Kp*e + Kd*de/dt
+        dri_cmd = pos_kp * pos_error + pos_kd * pos_error_ddt;
 
         dri_pwm = cmd2pwm(dri_cmd);
     }
+
     ///////////////////////////////////////////////////////
     else if (ctl_mode == 4)
     {
