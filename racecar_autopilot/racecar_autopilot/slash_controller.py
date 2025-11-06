@@ -110,7 +110,7 @@ class SlashController(Node):
 
                 x = np.array([[self.laser_y], [self.laser_theta]])
                 r = np.array([[0.0], [0.0]])
-                u = np.array([[self.servo_cmd]])
+                u = np.array([[self.steering_cmd]])
 
                 u = self.controller1(x, r)
 
