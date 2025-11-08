@@ -31,13 +31,13 @@ class SlashController(Node):
         # Paramters
 
         # Controller
-        self.steering_offset = 0.0  # To adjust according to the vehicle
+        self.steering_offset = -0.0873/3  # To adjust according to the vehicle
         
         self.K_autopilot = np.array([0.316,  -0.538])
 
         self.K_parking = np.array([
-            [-1.0, -1.96*10**(-4), -1.96*10**(-4)],
-            [1.31*10**(-5), 0.375 , 0.6]
+            [1.0, -1.96*10**(-5), 1.96*10**(-4)],
+            [-1.31*10**(-5), 0.375 , -0.6]
         ])
 
         # Memory
@@ -120,20 +120,23 @@ class SlashController(Node):
                 
 
             elif self.high_level_mode == 4:
-                # Closed-loop position and steering
+                # Closed-loop position and steering (Parking)
+                x = np.array([[self.position], [self.laser_y], [self.laser_theta]])
+                r = np.array([[5.15], [0.0], [0.0]])
 
-                # Parking
-
-                x = np.array([[self.position],[self.laser_y], [self.laser_theta]])
-                r = np.array([[2.0], [0.0], [0.0]])
-                u = np.array([[self.propulsion_cmd], [self.steering_cmd]])
-                
+                # Get controller output
                 u = self.controller2(x, r)
 
-                self.steering_cmd = u[1] + self.steering_offset
-                self.propulsion_cmd = max(min(u[0], 1.0), -1.0)
+                # Ensure outputs are scalar
+                propulsion = float(u[0].item())
+                steering = float(u[1].item())
 
-                self.arduino_mode = 2  
+                # Cap propulsion speed to ±1.0 m/s
+                self.propulsion_cmd = max(min(propulsion, 1.2), -1.2)
+                
+                self.steering_cmd = steering + self.steering_offset
+
+                self.arduino_mode = 2
 
             elif self.high_level_mode == 6:
                 # Reset encoders
