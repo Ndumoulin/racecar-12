@@ -36,7 +36,7 @@ class SlashController(Node):
         self.K_autopilot = np.array([0.316,  -0.538])
 
         self.K_parking = np.array([
-            [-1.0, -1.96*10**(-5), -1.96*10**(-4)],
+            [-1.0, -1.96*10**(-4), -1.96*10**(-4)],
             [1.31*10**(-5), 0.375 , 0.6]
         ])
 
@@ -116,14 +116,11 @@ class SlashController(Node):
 
                 self.steering_cmd = u[0]
                 self.propulsion_cmd = self.propulsion_ref
-                self.arduino_mode = 5  # Mode ??? on arduino
+                self.arduino_mode = 2  # Mode ??? on arduino
                 
 
             elif self.high_level_mode == 4:
                 # Closed-loop position and steering
-
-                #########################################################
-                # TODO: COMPLETEZ LE CONTROLLER
 
                 # Parking
 
@@ -134,7 +131,8 @@ class SlashController(Node):
                 u = self.controller2(x, r)
 
                 self.steering_cmd = u[1] + self.steering_offset
-                self.propulsion_cmd = u[0]
+                self.propulsion_cmd = max(min(u[0], 1.0), -1.0)
+
                 self.arduino_mode = 2  
 
             elif self.high_level_mode == 6:
@@ -167,8 +165,6 @@ class SlashController(Node):
 
     #######################################
     def controller2(self, x, r):
-
-        # Control Law TODO
 
         u = self.K_parking  @ (r - x)
 
