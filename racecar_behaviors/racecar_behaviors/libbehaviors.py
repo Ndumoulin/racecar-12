@@ -37,16 +37,33 @@ def multiply_transforms(trans1, rot1, trans2, rot2):
 
 def brushfire(occupancyGrid):
     mapOfWorld = np.zeros(occupancyGrid.shape, dtype=int)
+    # 0 = Chemin, -1 et 100 = Unknown, -1 = obstacle
     mapOfWorld[occupancyGrid==100] = 1 # set all unknowns and obstacles to -1
     mapOfWorld[occupancyGrid==-1] = 1 
     
     # do brushfire algorithm here
+    nRows = mapOfWorld.shape[0]
+    nCols = mapOfWorld.shape[1]
+    a = 1
+
+    while np.any(mapOfWorld == 0):
+        for iRow in range(nRows):
+            for iCol in range(nCols):
+                if mapOfWorld[iRow][iCol] == a:
+                    if (iRow > 0):
+                        if (mapOfWorld[iRow-1][iCol] == 0) : mapOfWorld[iRow-1][iCol] = a + 1
+                    if (iRow < nRows-1):
+                        if (mapOfWorld[iRow+1][iCol] == 0) : mapOfWorld[iRow+1][iCol] = a + 1
+                    if (iCol > 0):
+                        if (mapOfWorld[iRow][iCol-1] == 0) : mapOfWorld[iRow][iCol-1] = a + 1
+                    if (iCol < nCols-1):
+                        if (mapOfWorld[iRow][iCol+1] == 0) : mapOfWorld[iRow][iCol+1] = a + 1
+                        
+        a += 1
     
     # brushfire: -1 = obstacle or unknown, safer cells have higher value)
     
-    return mapOfWorld
-    
-        
+    return mapOfWorld  
 
 def main(args=None):
     rclpy.init(args=args)
