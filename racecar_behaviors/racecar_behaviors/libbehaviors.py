@@ -11,8 +11,6 @@ from tf2_ros import Buffer
 from tf2_geometry_msgs import do_transform_point
 import tf_transformations as transformations
 
-
-
 def quaternion_to_yaw(quat):
     # Uses TF transforms to convert a quaternion to a rotation angle around Z.
     # Usage with an Odometry message: 
@@ -37,7 +35,7 @@ def multiply_transforms(trans1, rot1, trans2, rot2):
 
 def brushfire(occupancyGrid):
     mapOfWorld = np.zeros(occupancyGrid.shape, dtype=int)
-    # 0 = Chemin, -1 et 100 = Unknown, -1 = obstacle
+    # 0 = Chemin, 100 = Unknown, -1 = obstacle
     mapOfWorld[occupancyGrid==100] = 1 # set all unknowns and obstacles to -1
     mapOfWorld[occupancyGrid==-1] = 1 
     
@@ -63,7 +61,68 @@ def brushfire(occupancyGrid):
     
     # brushfire: -1 = obstacle or unknown, safer cells have higher value)
     
-    return mapOfWorld  
+    return mapOfWorld
+
+def wavefront(occupancyGrid, goal):
+   
+    mapOfWorld = np.zeros(occupancyGrid.shape, dtype=int)
+ 
+    # obstacles = 1
+    mapOfWorld[occupancyGrid == 100] = 1
+    mapOfWorld[occupancyGrid == -1] = 1
+ 
+    nRows, nCols = mapOfWorld.shape
+ 
+    # --- INITIALISATION ---
+    goal_r, goal_c = goal
+ 
+    if mapOfWorld[goal_r, goal_c] == 1:
+        raise ValueError("Goal est un obstacle !")
+ 
+    # on démarre le wavefront
+    mapOfWorld[goal_r, goal_c] = 2  # valeur de départ (peut être 1)
+ 
+    a = 2
+ 
+    # --- PROPAGATION WAVEFRONT  ---
+    while True:
+        changed = False
+ 
+        for r in range(nRows):
+            for c in range(nCols):
+                if mapOfWorld[r, c] == a:
+                    # VOISINS
+                    if r > 0 and mapOfWorld[r-1, c] == 0:
+                        mapOfWorld[r-1, c] = a + 1
+                        changed = True
+                    if r < nRows-1 and mapOfWorld[r+1, c] == 0:
+                        mapOfWorld[r+1, c] = a + 1
+                        changed = True
+                    if c > 0 and mapOfWorld[r, c-1] == 0:
+                        mapOfWorld[r, c-1] = a + 1
+                        changed = True
+                    if c < nCols-1 and mapOfWorld[r, c+1] == 0:
+                        mapOfWorld[r, c+1] = a + 1
+                        changed = True
+ 
+        if not changed:
+            break
+ 
+        a += 1
+    
+    return mapOfWorld
+
+
+def compute_path_transform(brush_map, wave_map, alpha):
+    eps = 1e-6
+    obstacle_cost = 1 / (brush_map + eps)
+
+    PT = wave_map + alpha * obstacle_cost
+
+    return PT 
+
+
+
 
 def main(args=None):
     rclpy.init(args=args)

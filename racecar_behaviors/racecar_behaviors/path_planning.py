@@ -12,9 +12,10 @@ from rclpy.node import Node
 import cv2
 import numpy as np
 from nav_msgs.srv import GetMap
-from racecar_behaviors.libbehaviors import brushfire
+from racecar_behaviors.libbehaviors import brushfire, wavefront, compute_path_transform
 
-class Brushfire(Node):
+
+class PathPlanning(Node):
     def __init__(self):
         super().__init__('brushfire')
         self.prefix = "rtabmap"
@@ -36,6 +37,34 @@ class Brushfire(Node):
         else:
             self.get_logger().info("Brushfire failed! Is brushfire implemented?")
 
+    def export_wavefront_map(self, wavefront_map):
+        # Adjust color: 0 (black) = obstacle, 10-255 (white) = safest cells
+        maximum = np.amax(wavefront_map)
+        if maximum > 0:
+            mask = wavefront_map == 1
+            wavefront_map = wavefront_map.astype(float) / float(maximum) * 225.0 + 30.0
+            wavefront_map[mask] = 0
+            wavefront_map = wavefront_map.astype(np.uint8)  # Removes "type warning" from OpenCV
+            # Flip image to get x->up, y->left (like top view in RVIZ looking towards x-axis)
+            cv2.imwrite('wavefront.bmp', cv2.transpose(cv2.flip(wavefront_map, -1)))
+            self.get_logger().info("Exported wavefront.bmp")
+        else:
+            self.get_logger().info("Wavefront failed! Is wavefront implemented?")
+
+    def export_combined_map(self, combined_map):
+        # Adjust color: 0 (black) = obstacle, 10-255 (white) = safest cells
+        maximum = np.amax(combined_map)
+        if maximum > 0:
+            mask = combined_map == 1
+            combined_map = combined_map.astype(float) / float(maximum) * 225.0 + 30.0
+            combined_map[mask] = 0
+            combined_map = combined_map.astype(np.uint8)  # Removes "type warning" from OpenCV
+            # Flip image to get x->up, y->left (like top view in RVIZ looking towards x-axis)
+            cv2.imwrite('combined.bmp', cv2.transpose(cv2.flip(combined_map, -1)))
+            self.get_logger().info("Exported combined.bmp")
+        else:
+            self.get_logger().info("combined failed! Is combined implemented?")
+
     def export_grid_map(self, grid):
         # Example to show grid with same color as RVIZ
         img = np.zeros_like(grid).astype(np.uint8)  # Avoids OverflowError from NumPy
@@ -46,14 +75,23 @@ class Brushfire(Node):
         cv2.imwrite('map.bmp', cv2.transpose(cv2.flip(img, -1)))
         self.get_logger().info("Exported map.bmp")
 
+
+    
+
     def get_map_callback(self, future):
         response = future.result()
         self.get_logger().info("Got map=%dx%d resolution=%f" %(response.map.info.height, response.map.info.width, response.map.info.resolution))
         #rospy.loginfo("Got map=%dx%d resolution=%f", response.map.info.height, response.map.info.width, response.map.info.resolution)
         grid = np.reshape(response.map.data, [response.map.info.height, response.map.info.width])
         brushfire_map = brushfire(grid)
+        wavefront_map = wavefront(grid, (60,200))
+        combined_map = compute_path_transform(brushfire_map, wavefront_map, 10)
         self.export_brushfire_map(brushfire_map)
+        self.export_wavefront_map(wavefront_map)
+        self.export_combined_map(combined_map)
         self.export_grid_map(grid)
+    
+
 
     def main(self):
         request = GetMap.Request()
@@ -62,9 +100,9 @@ class Brushfire(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    brushfire_node = Brushfire()
-    brushfire_node.main()
-    rclpy.spin(brushfire_node)
+    path_planning_node = PathPlanning()
+    path_planning_node.main()
+    rclpy.spin(path_planning_node)
     rclpy.shutdown()
 
 if __name__ == '__main__':
