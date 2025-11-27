@@ -63,7 +63,7 @@ source install/local_setup.bash  # Only on the first build
 When trying to run the _brushfire_ script from GRO830's lab:
 
 ```bash
-ros2 run racecar_behaviors labo_brushfire
+ros2 run racecar_behaviors path_planning
 ```
 
 You may run into an error similar to the following:
@@ -83,7 +83,7 @@ The cause of this issue is unknown, but it has to do with how Python finds its d
 This issue only occurs when using `ros2 run` to execute the script, so the workaround is to use `python3`:
 
 ```bash
-python3 path/to/labo_brushfire.py
+python3 path/to/path_planning.py
 ```
 
 Alternatively, if you want `ros2 run` to work, you can uncomment the lines of code at the top of the file to remove the problematic path from the list, BUT this "Band-Aid" is a very bad solution, and is NOT recommended. Note that this solution works exclusively for this script, and you need to paste the lines in every script (affected by the issue) executed using either `ros2 run` or `ros2 launch`.

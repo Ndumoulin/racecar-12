@@ -11,8 +11,6 @@ from tf2_ros import Buffer
 from tf2_geometry_msgs import do_transform_point
 import tf_transformations as transformations
 
-
-
 def quaternion_to_yaw(quat):
     # Uses TF transforms to convert a quaternion to a rotation angle around Z.
     # Usage with an Odometry message: 
@@ -37,7 +35,7 @@ def multiply_transforms(trans1, rot1, trans2, rot2):
 
 def brushfire(occupancyGrid):
     mapOfWorld = np.zeros(occupancyGrid.shape, dtype=int)
-    # 0 = Chemin, -1 et 100 = Unknown, -1 = obstacle
+    # 0 = Chemin, 100 = Unknown, -1 = obstacle
     mapOfWorld[occupancyGrid==100] = 1 # set all unknowns and obstacles to -1
     mapOfWorld[occupancyGrid==-1] = 1 
     
