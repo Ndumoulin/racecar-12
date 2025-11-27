@@ -4,6 +4,7 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist, PoseStamped
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry, Path
+from std_msgs.msg import Float32MultiArray
 from tf2_ros import Buffer, TransformListener
 import numpy as np
 import math
@@ -24,21 +25,20 @@ class PathFollowing(Node):
         self.goal_tolerance = self.declare_parameter('goal_tolerance', 0.3).value
         self.wheelbase = self.declare_parameter('wheelbase', 0.32).value  # Distance entre essieux
         
-        # U-turn parameters
-        self.uturn_speed = self.declare_parameter('uturn_speed', 0.3).value
-        self.uturn_steering = self.declare_parameter('uturn_steering', 0.5).value
-        self.uturn_angle_threshold = self.declare_parameter('uturn_angle_threshold', 2.8).value  # ~160 degrees
-        
         # State
         self.current_path = None
         self.current_pose = None
         self.current_yaw = 0.0
         self.scan_data = None
-        self.path_completed = False
-        self.uturn_in_progress = False
-        self.uturn_start_yaw = 0.0
-        self.original_path = None
-        self.reversed_path = None
+        self.step = 1  # 1: going to goal, 2: uturn, 3: go to 0,0
+        
+        # U-turn state machine
+        self.uturn_stage = 0  # 0: backward+right, 1: left+straight
+        self.uturn_start_time = None
+        self.uturn_backward_duration = 5  # seconds to go backward
+        self.uturn_forward_duration = 4  # seconds to go forward
+        self.uturn_speed = 0.3
+        self.uturn_steering = 0.5
         
         # TF
         self.tf_buffer = Buffer()
@@ -46,6 +46,7 @@ class PathFollowing(Node):
         
         # Publishers & Subscribers
         self.cmd_vel_pub = self.create_publisher(Twist, '/racecar/cmd_vel', 1)
+        self.goal_pub = self.create_publisher(Float32MultiArray, '/goal_coordinates', 1)
         self.scan_sub = self.create_subscription(LaserScan, 'scan', self.scan_callback, 1)
         self.odom_sub = self.create_subscription(Odometry, '/racecar/odom', self.odom_callback, 1)
         self.path_sub = self.create_subscription(Path, '/a_star_path', self.path_callback, 1)
@@ -53,31 +54,17 @@ class PathFollowing(Node):
         # Control timer
         self.control_timer = self.create_timer(0.05, self.control_loop)  # 20 Hz
         
-        self.get_logger().info('Path Following initialized with Pure Pursuit controller and U-turn capability')
+        self.get_logger().info('Path Following initialized with Pure Pursuit controller')
     
     def path_callback(self, msg):
-        """Receive new path from A*"""
-        if len(msg.poses) > 0:
+        if self.step == 1:
+            self.step = None
             self.current_path = msg
-            self.original_path = msg
-            self.reversed_path = None
-            self.path_completed = False
-            self.uturn_in_progress = False
             self.get_logger().info(f'Received new path with {len(msg.poses)} points')
-        else:
-            self.get_logger().warn('Received empty path')
-    
-    def create_reversed_path(self):
-        """Create a reversed version of the original path for the return journey"""
-        if self.original_path is None:
-            return None
-        
-        reversed_path = Path()
-        reversed_path.header = self.original_path.header
-        reversed_path.poses = list(reversed(self.original_path.poses))
-        
-        self.get_logger().info('Created reversed path for return journey')
-        return reversed_path
+        elif self.step == 3:
+            self.step = None
+            self.current_path = msg
+            self.get_logger().info(f'Received return path to (0,0) with {len(msg.poses)} points')
     
     def scan_callback(self, msg):
         """Store laser scan data for obstacle detection"""
@@ -122,12 +109,11 @@ class PathFollowing(Node):
             goal_pose.y - self.current_pose.y
         )
         
-        if dist_to_goal < self.goal_tolerance and not self.uturn_in_progress:
-            if not self.path_completed:
-                self.get_logger().info('Goal reached! Starting U-turn')
-                self.path_completed = True
-                self.uturn_in_progress = True
-                self.uturn_start_yaw = self.current_yaw
+        if dist_to_goal < self.goal_tolerance:
+            self.get_logger().info('Goal reached!')
+            self.current_path = None
+            self.step = 2
+            self.do_uturn()
             return None
         
         # Search for lookahead point starting from closest point
@@ -173,30 +159,19 @@ class PathFollowing(Node):
         steering_angle = np.clip(steering_angle, -self.max_steering, self.max_steering)
         
         return steering_angle
-    
-    def execute_uturn(self):
-        """Execute a sharp U-turn maneuver"""
-        twist = Twist()
-        
-        # Calculate the angle turned so far
-        angle_turned = abs(self.normalize_angle(self.current_yaw - self.uturn_start_yaw))
-        
-        self.get_logger().info(f'U-turn progress: {angle_turned:.2f} radians', throttle_duration_sec=0.5)
-        
-        # Check if U-turn is complete (turned approximately 180 degrees)
-        if angle_turned >= self.uturn_angle_threshold:
-            self.get_logger().info('U-turn completed! Switching to reversed path')
-            self.uturn_in_progress = False
-            # Switch to reversed path for return journey
-            self.reversed_path = self.create_reversed_path()
-            self.current_path = self.reversed_path
-            return None
-        
-        # Execute U-turn: move forward while turning sharply
-        twist.linear.x = self.uturn_speed
-        twist.angular.z = self.uturn_steering  # Turn left for U-turn
-        
-        return twist
+
+    def do_uturn(self):
+        """Start U-turn maneuver"""
+        self.uturn_stage = 0
+        self.uturn_start_time = self.get_clock().now()
+        self.get_logger().info('Starting U-turn maneuver: backward with right steering')
+
+    def send_goal_to_origin(self):
+        """Send goal to origin (0, 0) to request path back"""
+        goal_msg = Float32MultiArray()
+        goal_msg.data = [0.0, 0.0]
+        self.goal_pub.publish(goal_msg)
+        self.get_logger().info('Requesting path to origin (0, 0)')
     
     def normalize_angle(self, angle):
         """Normalize angle to [-pi, pi]"""
@@ -242,11 +217,39 @@ class PathFollowing(Node):
         """Main control loop - called at 20 Hz"""
         twist = Twist()
         
-        # Handle U-turn maneuver
-        if self.uturn_in_progress:
-            uturn_twist = self.execute_uturn()
-            if uturn_twist is not None:
-                self.cmd_vel_pub.publish(uturn_twist)
+        # Handle U-turn if in progress (step 2)
+        if self.step == 2 and self.uturn_start_time is not None:
+            elapsed = (self.get_clock().now() - self.uturn_start_time).nanoseconds / 1e9
+            
+            if self.uturn_stage == 0:
+                # Stage 0: Go backward with right steering
+                if elapsed < self.uturn_backward_duration:
+                    twist.linear.x = -self.uturn_speed  # Backward
+                    twist.angular.z = self.uturn_steering  # Right steering
+                    self.get_logger().info(f'U-turn stage 0: backward+right ({elapsed:.2f}s)', throttle_duration_sec=0.5)
+                else:
+                    # Switch to stage 1
+                    self.uturn_stage = 1
+                    self.uturn_start_time = self.get_clock().now()
+                    self.get_logger().info('U-turn switching to stage 1: left steering+forward')
+                    twist.linear.x = 0.0
+                    twist.angular.z = 0.0
+            elif self.uturn_stage == 1:
+                # Stage 1: Go forward with left steering for 10 seconds
+                if elapsed < self.uturn_forward_duration:
+                    twist.linear.x = self.uturn_speed  # Forward
+                    twist.angular.z = self.uturn_steering  # Left steering
+                    self.get_logger().info(f'U-turn stage 1: forward+left ({elapsed:.2f}s)', throttle_duration_sec=0.5)
+                else:
+                    # U-turn complete
+                    self.step = 3  # Move to next step
+                    self.uturn_start_time = None
+                    self.get_logger().info('U-turn completed!')
+                    self.send_goal_to_origin()  # Request path to (0, 0)
+                    twist.linear.x = 0.0
+                    twist.angular.z = 0.0
+            
+            self.cmd_vel_pub.publish(twist)
             return
         
         # No path available
@@ -270,13 +273,6 @@ class PathFollowing(Node):
         
         if lookahead_point is None:
             # Goal reached or no valid point
-            if self.path_completed and not self.uturn_in_progress and self.reversed_path is None:
-                # Start U-turn if we reached the goal and haven't started return journey
-                self.uturn_in_progress = True
-                self.uturn_start_yaw = self.current_yaw
-                self.get_logger().info('Starting U-turn maneuver')
-                return
-            
             twist.linear.x = 0.0
             twist.angular.z = 0.0
             self.cmd_vel_pub.publish(twist)
