@@ -45,9 +45,9 @@ class PathFollowing(Node):
         self.tf_listener = TransformListener(self.tf_buffer, self)
         
         # Publishers & Subscribers
-        self.cmd_vel_pub = self.create_publisher(Twist, '/racecar/cmd_vel', 1)
+        self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', 1)
         self.scan_sub = self.create_subscription(LaserScan, 'scan', self.scan_callback, 1)
-        self.odom_sub = self.create_subscription(Odometry, '/racecar/odom', self.odom_callback, 1)
+        self.odom_sub = self.create_subscription(Odometry, '/odometry/filtered', self.odom_callback, 1)
         self.path_sub = self.create_subscription(Path, '/a_star_path', self.path_callback, 1)
         
         # Control timer

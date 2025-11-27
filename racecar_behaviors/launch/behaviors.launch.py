@@ -16,7 +16,7 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
         executable="path_following",
         name="path_following",
         output="screen",
-        parameters=[{"max_speed": 1}],
+        #parameters=[{"max_speed": 1}],
         remappings=[
             ("/cmd_vel", f"/{prefix}/cmd_vel_abtr_3"),
             ("/scan", f"/{prefix}/scan"),
