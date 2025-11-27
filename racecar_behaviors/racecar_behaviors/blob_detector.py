@@ -41,6 +41,7 @@ class BlobDetector(Node):
         self.border = self.declare_parameter('border', 1).value
 
         self.wait_time = 0
+        self.stop_until = None
 
         params = cv2.SimpleBlobDetector_Params()
         # Modify the parameters as needed
@@ -166,7 +167,7 @@ class BlobDetector(Node):
                         closestObject[2] = depth
 
         # We process only the closest object detected
-        if closestObject[2] > 1.1 and closestObject[2] < 3.0:
+        if closestObject[2] > 1.5 and closestObject[2] < 3.0:
             # assuming the object is circular, use center of the object as position
             transObj = (closestObject[0], closestObject[1], closestObject[2])
             rotObj = tf_transformations.quaternion_from_euler(0, np.pi/2, -np.pi/2)
@@ -196,19 +197,32 @@ class BlobDetector(Node):
             tolerance = 10
             self.get_logger().info(f"Centrage blob: erreur x={error_x}")
             
-            if abs(error_x) > tolerance and closestObject[2] > 1.1 and closestObject[2] < 3.0:
+            if abs(error_x) > tolerance and closestObject[2] > 1.60 and closestObject[2] < 3.0:
                 twist = Twist()
                 twist.angular.z = 0.001*-error_x
                 twist.linear.x = 0.3  # <-- Change 1 en 0.1 (float)
                 self.get_logger().info(f"Centrage blob: erreur x={error_x}, cmd linear.x={twist.linear.x}")
                 self.cmd_vel_pub.publish(twist)
                 
-            elif closestObject[2] <= 1.1:
-                twist = Twist()
-                twist.angular.z = 0.0
-                twist.linear.x = 0.0  # <-- Change 1 en 0.2 (float)
-                self.get_logger().info(f"Blob centré: avancer, cmd linear.x={twist.linear.x}")
-                self.cmd_vel_pub.publish(twist)
+            elif closestObject[2] <= 1.6:
+                current_time = self.get_clock().now()
+                if self.stop_until is None:
+                    self.stop_until = current_time + Duration(seconds=5.0)
+                
+                if current_time < self.stop_until:
+                    twist = Twist()
+                    twist.angular.z = 0.0
+                    twist.linear.x = 0.0
+                    self.get_logger().info(f"Blob centré: arrêt pour 5 secondes.")
+                    self.cmd_vel_pub.publish(twist)
+                else:
+                    twist = Twist()
+                    twist.linear.x = 0.1
+                    twist.angular.z = 0.0
+                    self.get_logger().info(f"Fin de l'attente: avancer.")
+                    self.cmd_vel_pub.publish(twist)
+
+                
             
 
             # Compute object pose in base frame
