@@ -27,7 +27,7 @@ setup(
         'console_scripts': [
             'blob_detector = racecar_behaviors.blob_detector:main',
             'goal_planner = racecar_behaviors.goal_planner:main',
-            'labo_brushfire = racecar_behaviors.labo_brushfire:main',
+            'path_planning = racecar_behaviors.path_planning:main',
             'laserscan_to_pointcloud = racecar_behaviors.laserscan_to_pointcloud:main',
             'libbehaviors = racecar_behaviors.libbehaviors:main',
             'obstacle_detector = racecar_behaviors.obstacle_detector:main',
@@ -35,6 +35,7 @@ setup(
             'path_planner = racecar_behaviors.path_planner:main',
             'u_turn = racecar_behaviors.u_turn:main',
             'u_turn_goal = racecar_behaviors.u_turn_goal:main',
+            'labo_brushfire = racecar_behaviors.labo_brushfire:main',
         ],
     },
 )

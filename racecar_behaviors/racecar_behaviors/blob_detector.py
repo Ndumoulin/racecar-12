@@ -1,4 +1,4 @@
-    #!/usr/bin/env python3
+#!/usr/bin/env python3
 
 # Band-Aid to be able to use `ros2 launch`
 import sys
@@ -34,10 +34,10 @@ class BlobDetector(Node):
         self.map_frame_id = self.declare_parameter('map_frame_id', 'map').value
         self.frame_id = self.declare_parameter('frame_id', 'base_link').value
         self.object_frame_id = self.declare_parameter('object_frame_id', 'object').value
-        self.color_hue = self.declare_parameter('color_hue', 125).value  # 160=purple, 100=blue, 10=Orange
+        self.color_hue = self.declare_parameter('color_hue', 100).value  # 160=purple, 100=blue, 10=Orange
         self.color_range = self.declare_parameter('color_range', 20).value
-        self.color_saturation = self.declare_parameter('color_saturation', 150).value
-        self.color_value = self.declare_parameter('color_value', 10).value
+        self.color_saturation = self.declare_parameter('color_saturation', 100).value
+        self.color_value = self.declare_parameter('color_value', 1).value
         self.border = self.declare_parameter('border', 1).value
 
         self.wait_time = 0
@@ -46,7 +46,7 @@ class BlobDetector(Node):
         # Modify the parameters as needed
 
         params.thresholdStep = 10
-        params.minThreshold = 50
+        params.minThreshold = 150
         params.maxThreshold = 220
         params.minRepeatability = 2
         params.minDistBetweenBlobs = 10
@@ -57,7 +57,7 @@ class BlobDetector(Node):
         
         # Set Area filtering parameters 
         params.filterByArea = True
-        params.minArea = 1500
+        params.minArea = 100
         params.maxArea = 5000000000
           
         # Set Circularity filtering parameters 
@@ -81,6 +81,7 @@ class BlobDetector(Node):
         qos = QoSProfile(depth=10)
         self.image_pub = self.create_publisher(Image, 'image_detections', qos)
         self.object_pub = self.create_publisher(String, 'object_detected', qos)
+        self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 1)
 
         self.image_sub = message_filters.Subscriber(self, Image, 'image')
         self.depth_sub = message_filters.Subscriber(self, Image, 'depth')
@@ -165,7 +166,7 @@ class BlobDetector(Node):
                         closestObject[2] = depth
 
         # We process only the closest object detected
-        if closestObject[2] > 0:
+        if closestObject[2] > 1.1 and closestObject[2] < 3.0:
             # assuming the object is circular, use center of the object as position
             transObj = (closestObject[0], closestObject[1], closestObject[2])
             rotObj = tf_transformations.quaternion_from_euler(0, np.pi/2, -np.pi/2)
@@ -184,18 +185,32 @@ class BlobDetector(Node):
             msg.data = self.object_frame_id
             self.object_pub.publish(msg) # signal that an object has been detected
             
-            # Compute object pose in map frame
-            try:
-                self.tf_buffer.lookup_transform(self.map_frame_id, image.header.frame_id, image.header.stamp, Duration(nanoseconds=500000000)) # 500 ms
-                t = self.tf_buffer.lookup_transform(self.map_frame_id, image.header.frame_id, image.header.stamp)
-                transMap = [t.transform.translation.x, t.transform.translation.y, t.transform.translation.z]
-                rotMap = [t.transform.rotation.x, t.transform.rotation.y, t.transform.rotation.z, t.transform.rotation.w]
-            except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException, tf2_ros.TransformException) as e:
-                self.get_logger().info(str(e))
-                return
+            # --- Centrage du robot vers le blob ---
+            # Centre de l'image
+            img_center_x = cv_image.shape[1] / 2
+            # Position x du blob (dans l'image)
+            blob_x = keypoints[0].pt[0]
+            error_x = blob_x - img_center_x
+
+            # Seuil de tolérance pour considérer le blob comme centré (pixels)
+            tolerance = 10
+            self.get_logger().info(f"Centrage blob: erreur x={error_x}")
             
-            (transMap, rotMap) = multiply_transforms(transMap, rotMap, transObj, rotObj)
+            if abs(error_x) > tolerance and closestObject[2] > 1.1 and closestObject[2] < 3.0:
+                twist = Twist()
+                twist.angular.z = 0.001*-error_x
+                twist.linear.x = 0.3  # <-- Change 1 en 0.1 (float)
+                self.get_logger().info(f"Centrage blob: erreur x={error_x}, cmd linear.x={twist.linear.x}")
+                self.cmd_vel_pub.publish(twist)
+                
+            elif closestObject[2] <= 1.1:
+                twist = Twist()
+                twist.angular.z = 0.0
+                twist.linear.x = 0.0  # <-- Change 1 en 0.2 (float)
+                self.get_logger().info(f"Blob centré: avancer, cmd linear.x={twist.linear.x}")
+                self.cmd_vel_pub.publish(twist)
             
+
             # Compute object pose in base frame
             try:
                 t = self.tf_buffer.lookup_transform(self.frame_id, image.header.frame_id, image.header.stamp, Duration(nanoseconds=500000000)) # 500 ms
@@ -209,8 +224,22 @@ class BlobDetector(Node):
             distance = np.linalg.norm(transBase[0:2])
             angle = np.arcsin(transBase[1]/transBase[0]) 
 
-            self.get_logger().info(f"Object detected at [{transMap[0]},{transMap[1]}] in {self.map_frame_id} frame! Distance and direction from robot: {distance}m {angle*180.0/np.pi}deg.")
+            self.get_logger().info(f"Object detected at distance and direction from robot: {distance}m {angle*180.0/np.pi}deg.")
 
+            # Compute object pose in map frame
+            try:
+                self.tf_buffer.lookup_transform(self.map_frame_id, image.header.frame_id, image.header.stamp, Duration(nanoseconds=500000000)) # 500 ms
+                t = self.tf_buffer.lookup_transform(self.map_frame_id, image.header.frame_id, image.header.stamp)
+                transMap = [t.transform.translation.x, t.transform.translation.y, t.transform.translation.z]
+                rotMap = [t.transform.rotation.x, t.transform.rotation.y, t.transform.rotation.z, t.transform.rotation.w]
+
+            except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException, tf2_ros.TransformException) as e:
+                self.get_logger().info(str(e))
+                return
+
+            (transMap, rotMap) = multiply_transforms(transMap, rotMap, transObj, rotObj)
+
+            self.get_logger().info(f"Object detected at [{transMap[0]},{transMap[1]}] in {self.map_frame_id} frame!")
         # debugging topic
         cv_image = cv2.bitwise_and(cv_image, cv_image, mask=mask)
         try:

@@ -41,10 +41,13 @@ def launch_setup(context, *args, **kwargs):
         executable='blob_detector',
         name='blob_detector',
         output='screen',
-        remappings=[('image', 'raspicam_node/image'), ('camera_info', 'racecar/camera_info'),
-                    ('depth', 'raspicam_node/depth_registered')],
-        parameters=[{'map_frame_id': 'racecar/odom', 'frame_id': 'racecar/base_footprint',
-                     'object_frame_id': 'racecar/object', 'color_hue': 160}]
+        remappings=[
+            ('/cmd_vel', '/racecar/cmd_vel_abtr_2'),  # <-- AJOUTE CETTE LIGNE
+            ('image', 'raspicam_node/image'),
+            ('camera_info', 'racecar/camera_info'),
+            ('depth', 'raspicam_node/depth_registered')],
+        parameters=[{'map_frame_id': 'racecar/map', 'frame_id': 'racecar/base_footprint',
+                     'object_frame_id': 'racecar/object', 'color_hue': 100}]
     )
 
     # Define debug nodes
