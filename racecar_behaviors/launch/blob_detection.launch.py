@@ -42,7 +42,7 @@ def launch_setup(context, *args, **kwargs):
         name='blob_detector',
         output='screen',
         remappings=[
-            ('/cmd_vel', '/racecar/cmd_vel_abtr_2'),  # <-- AJOUTE CETTE LIGNE
+            ('/cmd_vel', '/racecar/cmd_vel_abtr_1'),  # <-- AJOUTE CETTE LIGNE
             ('image', 'raspicam_node/image'),
             ('camera_info', 'racecar/camera_info'),
             ('depth', 'raspicam_node/depth_registered')],

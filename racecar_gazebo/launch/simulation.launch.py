@@ -52,6 +52,6 @@ def generate_launch_description():
         choices=["tunnel", "tunnel_genie", "circuit"],
     )
 
-    return LaunchDescription([DeclareLaunchArgument('use_joy', default_value='True', description="launch joy related node"),
+    return LaunchDescription([DeclareLaunchArgument('use_joy', default_value='False', description="launch joy related node"),
                               world_arg, 
                               OpaqueFunction(function=launch_setup)])
