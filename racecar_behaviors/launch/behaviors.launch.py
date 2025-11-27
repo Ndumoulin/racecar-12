@@ -18,7 +18,7 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
         output="screen",
         parameters=[{"max_speed": 1}],
         remappings=[
-            ("/cmd_vel", f"/{prefix}/cmd_vel_abtr_5"),
+            ("/cmd_vel", f"/{prefix}/cmd_vel_abtr_3"),
             ("/scan", f"/{prefix}/scan"),
             (f"/{prefix}/odom", f"/{prefix}/odometry/filtered"),
         ],
@@ -35,10 +35,23 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
         ],
     )
 
+    blob_detector_node = Node(
+        package="racecar_behaviors",
+        executable="blob_detector",
+        name="blob_detector",
+        output="screen",
+        remappings=[
+            ("/cmd_vel", f"/{prefix}/cmd_vel_abtr_2"),
+            ("/camera_info", f"/{prefix}/camera/camera_info"),
+            ("/depth", f"/{prefix}/camera/depth_registered"),
+        ],
+    )
+
     # Return nodes
     return [
         path_following_node,
         obstacle_detector_node,
+        blob_detector_node,
     ]
 
 

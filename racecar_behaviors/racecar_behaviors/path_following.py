@@ -28,7 +28,9 @@ class PathFollowing(Node):
         #ranges = msg.ranges[l2:len(msg.ranges)] + msg.ranges[0:l2]
         
         twist = Twist()
-        twist.linear.x = float(self.max_speed)
+        twist.linear.x = 0.4
+        #twist.linear.x = float(self.max_speed)
+        self.get_logger().info('PATH!')
         twist.angular.z = 0.0
            
         self.cmd_vel_pub.publish(twist)

@@ -29,10 +29,23 @@ class ObstacleDetector(Node):
                 obstacleDetected = True
                 break
 
+        # Obstacle arrière ?
+        obstacle_behind = False
+        # Indices pour l'arrière (quart central opposé)
+        for i in range(int(l2/8), int(3*l2/8)):
+            if np.isfinite(ranges[i]) and ranges[i]>0 and ranges[i] < self.distance_short:
+                obstacle_behind = True
+                break
+
         if obstacleDetected:
             twist = Twist()
+            twist.linear.x = -0.2
             self.cmd_vel_pub.publish(twist)
             self.get_logger().info('Obstacle detected! Stop!')
+        elif obstacleDetected and obstacle_behind:
+            twist = Twist()
+            self.cmd_vel_pub.publish(twist)
+            self.get_logger().info('Obstacle devant ET derrière: arrêt !')
 
 def main(args=None):
     rclpy.init(args=args)

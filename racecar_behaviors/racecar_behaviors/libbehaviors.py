@@ -63,7 +63,94 @@ def brushfire(occupancyGrid):
     
     # brushfire: -1 = obstacle or unknown, safer cells have higher value)
     
-    return mapOfWorld  
+    return mapOfWorld 
+
+def wavefront(occupancyGrid, goal):
+   
+    mapOfWorld = np.zeros(occupancyGrid.shape, dtype=int)
+ 
+    # obstacles = 1
+    mapOfWorld[occupancyGrid == 100] = 1
+    mapOfWorld[occupancyGrid == -1] = 1
+ 
+    nRows, nCols = mapOfWorld.shape
+ 
+    # --- INITIALISATION ---
+    goal_r, goal_c = goal
+ 
+    if mapOfWorld[goal_r, goal_c] == 1:
+        raise ValueError("Goal est un obstacle !")
+ 
+    # on démarre le wavefront
+    mapOfWorld[goal_r, goal_c] = 2  # valeur de départ (peut être 1)
+ 
+    a = 2
+ 
+    # --- PROPAGATION WAVEFRONT  ---
+    while True:
+        changed = False
+ 
+        for r in range(nRows):
+            for c in range(nCols):
+                if mapOfWorld[r, c] == a:
+                    # VOISINS
+                    if r > 0 and mapOfWorld[r-1, c] == 0:
+                        mapOfWorld[r-1, c] = a + 1
+                        changed = True
+                    if r < nRows-1 and mapOfWorld[r+1, c] == 0:
+                        mapOfWorld[r+1, c] = a + 1
+                        changed = True
+                    if c > 0 and mapOfWorld[r, c-1] == 0:
+                        mapOfWorld[r, c-1] = a + 1
+                        changed = True
+                    if c < nCols-1 and mapOfWorld[r, c+1] == 0:
+                        mapOfWorld[r, c+1] = a + 1
+                        changed = True
+ 
+        if not changed:
+            break
+ 
+        a += 1
+    
+    return mapOfWorld
+
+def combine_maps(map_wavefront, map_brushfire, alpha):
+    combine_maps = np.zeros(map_wavefront.shape, dtype=int)
+
+    for i in range(map_wavefront.shape[0]):
+        for j in range(map_wavefront.shape[1]):
+            if map_wavefront[i][j] == 1 or map_brushfire[i][j] == 1:
+                combine_maps[i][j] = 1  # obstacle
+            else:
+                combine_maps[i][j] = map_wavefront[i][j] + alpha * map_brushfire[i][j]
+    return combine_maps
+
+def path_function(combined_map, start, goal):
+    path_maps = np.zeros(combined_map.shape, dtype=int)
+
+    value = []
+    path=[]
+    current = start
+    path.append(current)
+    while current != goal:
+        r, c =current
+        neighbors = []
+        if combined_map[r-1][c] != 1:
+            neighbors.append(combined_map[r-1][c])
+        if combined_map[r+1][c] != 1:
+            neighbors.append(combined_map[r+1][c])
+        if combined_map[r][c-1] != 1:
+            neighbors.append(combined_map[r][c-1])
+        if combined_map[r][c+1] != 1:
+            neighbors.append(combined_map[r][c+1])
+
+        current = min(neighbors)
+        path.append(current)
+
+
+
+
+
 
 def main(args=None):
     rclpy.init(args=args)
