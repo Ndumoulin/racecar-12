@@ -5,6 +5,7 @@ from rclpy.node import Node
  
 from nav_msgs.msg import OccupancyGrid, Path
 from geometry_msgs.msg import PoseStamped
+from std_msgs.msg import Float32MultiArray
 from tf2_ros import Buffer, TransformListener
  
 import heapq
@@ -14,9 +15,10 @@ class AStarPlanner(Node):
     def __init__(self):
         super().__init__("path_planner")
  
-        # Hardcoded goal in MAP frame (CHANGE THESE)
+        # Goal coordinates (can be updated via subscriber)
         self.goal_x = 13.5
         self.goal_y = 2.1
+        self.goal_updated = False
  
         # TF
         self.tf_buffer = Buffer()
@@ -30,12 +32,20 @@ class AStarPlanner(Node):
             self.costmap_callback,
             10
         )
+        
+        # Goal subscriber - receives [x, y] coordinates
+        self.create_subscription(
+            Float32MultiArray,
+            "/goal_coordinates",
+            self.goal_callback,
+            10
+        )
  
         self.path_pub = self.create_publisher(Path, "/a_star_path", 10)
  
         self.timer = self.create_timer(1.0, self.plan_timer)
  
-        self.get_logger().info("A* planner initialized. Goal is hardcoded.")
+        self.get_logger().info("A* planner initialized. Listening for goal coordinates on /goal_coordinates topic.")
        
         self.max_safe_cost = 75
        
@@ -47,7 +57,20 @@ class AStarPlanner(Node):
     # -------------------------
     def costmap_callback(self, msg):
         self.costmap = msg
- 
+    
+    # -------------------------
+    #   Goal coordinates received
+    # -------------------------
+    def goal_callback(self, msg):
+        """Receive new goal coordinates [x, y]"""
+        if len(msg.data) >= 2:
+            self.goal_x = msg.data[0]
+            self.goal_y = msg.data[1]
+            self.goal_updated = True
+            self.get_logger().info(f"Received new goal: ({self.goal_x:.2f}, {self.goal_y:.2f})")
+        else:
+            self.get_logger().warn("Goal message must contain at least [x, y]")
+    
     # -------------------------
     #   TF lookup - FIXED TO USE MAP FRAME
     # -------------------------
