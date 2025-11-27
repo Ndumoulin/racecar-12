@@ -35,8 +35,8 @@ class PathFollowing(Node):
         # U-turn state machine
         self.uturn_stage = 0  # 0: backward+right, 1: left+straight
         self.uturn_start_time = None
-        self.uturn_backward_duration = 5  # seconds to go backward
-        self.uturn_forward_duration = 4  # seconds to go forward
+        self.uturn_backward_duration = 12  # seconds to go backward
+        self.uturn_forward_duration = 5  # seconds to go forward
         self.uturn_speed = 0.3
         self.uturn_steering = 0.5
         
@@ -72,13 +72,32 @@ class PathFollowing(Node):
     
     def odom_callback(self, msg):
         """Update current pose from odometry"""
-        self.current_pose = msg.pose.pose.position
-        
-        # Extract yaw from quaternion
-        q = msg.pose.pose.orientation
-        siny_cosp = 2 * (q.w * q.z + q.x * q.y)
-        cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z)
-        self.current_yaw = math.atan2(siny_cosp, cosy_cosp)
+        # We don't use odom for pose anymore, we use TF in the control loop
+        # to ensure we are in the same frame as the path (racecar/map)
+        pass
+    
+    def get_robot_pose(self):
+        """Get robot pose in map frame using TF"""
+        try:
+            tf = self.tf_buffer.lookup_transform(
+                "racecar/map",
+                "racecar/base_footprint",
+                rclpy.time.Time()
+            )
+            
+            # Position
+            self.current_pose = tf.transform.translation
+            
+            # Yaw
+            q = tf.transform.rotation
+            siny_cosp = 2 * (q.w * q.z + q.x * q.y)
+            cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z)
+            self.current_yaw = math.atan2(siny_cosp, cosy_cosp)
+            
+            return True
+        except Exception as e:
+            self.get_logger().warn(f"TF unavailable: {e}", throttle_duration_sec=2.0)
+            return False
     
     def get_lookahead_point(self):
         """Find the lookahead point on the path using Pure Pursuit"""
@@ -260,9 +279,9 @@ class PathFollowing(Node):
             self.cmd_vel_pub.publish(twist)
             return
         
-        # No pose available
-        if self.current_pose is None:
-            self.get_logger().warn('No pose available, stopping', throttle_duration_sec=2.0)
+        # Update pose from TF
+        if not self.get_robot_pose():
+            self.get_logger().warn('No pose available (TF), stopping', throttle_duration_sec=2.0)
             twist.linear.x = 0.0
             twist.angular.z = 0.0
             self.cmd_vel_pub.publish(twist)
