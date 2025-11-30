@@ -28,6 +28,7 @@ setup(
             'blob_detector = racecar_behaviors.blob_detector:main',
             'goal_planner = racecar_behaviors.goal_planner:main',
             'path_planning = racecar_behaviors.path_planning:main',
+            'path_service = racecar_behaviors.path_service:main',
             'laserscan_to_pointcloud = racecar_behaviors.laserscan_to_pointcloud:main',
             'libbehaviors = racecar_behaviors.libbehaviors:main',
             'obstacle_detector = racecar_behaviors.obstacle_detector:main',

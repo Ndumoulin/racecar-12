@@ -4,7 +4,8 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist, PoseStamped
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry, Path
-from std_msgs.msg import Float32MultiArray
+from nav_msgs.srv import GetPlan
+from std_srvs.srv import Trigger
 from tf2_ros import Buffer, TransformListener
 import numpy as np
 import math
@@ -25,18 +26,22 @@ class PathFollowing(Node):
         self.goal_tolerance = self.declare_parameter('goal_tolerance', 0.3).value
         self.wheelbase = self.declare_parameter('wheelbase', 0.32).value  # Distance entre essieux
         
+        # Goal coordinates
+        self.goal_x = 13.5
+        self.goal_y = 2.1
+        
         # State
         self.current_path = None
         self.current_pose = None
         self.current_yaw = 0.0
         self.scan_data = None
-        self.step = 1  # 1: going to goal, 2: uturn, 3: go to 0,0
+        self.step = 0  # 0: request initial path, 1: going to goal, 2: uturn, 3: go to 0,0
         
         # U-turn state machine
         self.uturn_stage = 0  # 0: backward+right, 1: left+straight
         self.uturn_start_time = None
-        self.uturn_backward_duration = 12  # seconds to go backward
-        self.uturn_forward_duration = 5  # seconds to go forward
+        self.uturn_backward_duration = 10  # seconds to go backward
+        self.uturn_forward_duration = 3  # seconds to go forward
         self.uturn_speed = 0.3
         self.uturn_steering = 0.5
         
@@ -46,25 +51,140 @@ class PathFollowing(Node):
         
         # Publishers & Subscribers
         self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', 1)
-        self.goal_pub = self.create_publisher(Float32MultiArray, '/goal_coordinates', 1)
         self.scan_sub = self.create_subscription(LaserScan, 'scan', self.scan_callback, 1)
         self.odom_sub = self.create_subscription(Odometry, '/racecar/odom', self.odom_callback, 1)
-        self.path_sub = self.create_subscription(Path, '/a_star_path', self.path_callback, 1)
+        
+        # Service client for path planning
+        self.path_client = self.create_client(GetPlan, '/plan_path')
+        
+        # Subscriber to receive new paths that can override current path
+        self.path_override_sub = self.create_subscription(
+            Path,
+            '/override_path',
+            self.override_path_callback,
+            10
+        )
+        
+        # Service to trigger path replanning
+        self.replan_service = self.create_service(
+            Trigger,
+            '/replan_path',
+            self.replan_callback
+        )
+        
+        # Wait for service to be available
+        self.get_logger().info('Waiting for /plan_path service...')
+        while not self.path_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Service not available, waiting...')
+        
+        self.get_logger().info('Path planning service available!')
+        self.get_logger().info('Listening for path overrides on /override_path')
+        self.get_logger().info('Replan service ready on /replan_path')
         
         # Control timer
         self.control_timer = self.create_timer(0.05, self.control_loop)  # 20 Hz
         
+        # Request initial path after a short delay to let TF settle
+        self.initial_path_timer = self.create_timer(2.0, self.request_initial_path)
+        
         self.get_logger().info('Path Following initialized with Pure Pursuit controller')
     
-    def path_callback(self, msg):
-        if self.step == 1:
-            self.step = None
+    def request_initial_path(self):
+        """Request path to goal on startup"""
+        if self.step == 0:
+            self.get_logger().info(f'Requesting initial path to goal ({self.goal_x}, {self.goal_y})')
+            self.request_path_to_goal(self.goal_x, self.goal_y)
+            # Cancel the timer after first execution
+            self.initial_path_timer.cancel()
+    
+    def request_path_to_goal(self, goal_x, goal_y):
+        """Request a path from current position to goal using the service"""
+        # Get current robot pose
+        if not self.get_robot_pose():
+            self.get_logger().error('Cannot request path: robot pose unavailable')
+            return
+        
+        # Create service request
+        request = GetPlan.Request()
+        
+        # Start pose (current position)
+        request.start.header.frame_id = 'racecar/map'
+        request.start.header.stamp = self.get_clock().now().to_msg()
+        request.start.pose.position.x = self.current_pose.x
+        request.start.pose.position.y = self.current_pose.y
+        request.start.pose.position.z = 0.0
+        request.start.pose.orientation.w = 1.0
+        
+        # Goal pose
+        request.goal.header.frame_id = 'racecar/map'
+        request.goal.header.stamp = self.get_clock().now().to_msg()
+        request.goal.pose.position.x = goal_x
+        request.goal.pose.position.y = goal_y
+        request.goal.pose.position.z = 0.0
+        request.goal.pose.orientation.w = 1.0
+        
+        # Call service asynchronously
+        future = self.path_client.call_async(request)
+        future.add_done_callback(self.path_response_callback)
+        
+        self.get_logger().info(f'Path request sent from ({self.current_pose.x:.2f}, {self.current_pose.y:.2f}) to ({goal_x:.2f}, {goal_y:.2f})')
+    
+    def path_response_callback(self, future):
+        """Handle path planning service response"""
+        try:
+            response = future.result()
+            if len(response.plan.poses) > 0:
+                self.current_path = response.plan
+                if self.step == 0:
+                    self.step = 1  # Start following path to goal
+                elif self.step == 3:
+                    self.step = 1  # Follow return path
+                self.get_logger().info(f'Received path with {len(response.plan.poses)} points')
+            else:
+                self.get_logger().error('Received empty path from service!')
+        except Exception as e:
+            self.get_logger().error(f'Service call failed: {e}')
+    
+    def override_path_callback(self, msg):
+        """Callback to receive and set a new path from external source"""
+        if len(msg.poses) > 0:
             self.current_path = msg
-            self.get_logger().info(f'Received new path with {len(msg.poses)} points')
-        elif self.step == 3:
-            self.step = None
-            self.current_path = msg
-            self.get_logger().info(f'Received return path to (0,0) with {len(msg.poses)} points')
+            self.get_logger().info(f'Path overridden! New path has {len(msg.poses)} points')
+            # If we were waiting for a path (step 0 or 3), transition to following
+            if self.step == 0:
+                self.step = 1
+            elif self.step == 3:
+                self.step = 1  # Follow the new path
+        else:
+            self.get_logger().warn('Received empty override path, ignoring')
+    
+    def replan_callback(self, request, response):
+        """Service to trigger replanning to current goal or origin based on step"""
+        try:
+            if self.step == 1:
+                # Replanning to original goal
+                self.get_logger().info(f'Replanning path to goal ({self.goal_x}, {self.goal_y})')
+                self.request_path_to_goal(self.goal_x, self.goal_y)
+                response.success = True
+                response.message = f'Replanning to goal ({self.goal_x}, {self.goal_y})'
+            elif self.step == 3:
+                # Replanning to origin
+                self.get_logger().info('Replanning path to origin (0, 0)')
+                self.request_path_to_goal(0.0, 0.0)
+                response.success = True
+                response.message = 'Replanning to origin (0, 0)'
+            else:
+                self.get_logger().warn(f'Cannot replan in current step: {self.step}')
+                response.success = False
+                response.message = f'Cannot replan in step {self.step} (only steps 1 or 3)'
+            
+            return response
+            
+        except Exception as e:
+            self.get_logger().error(f'Replanning failed: {e}')
+            response.success = False
+            response.message = f'Error: {str(e)}'
+            return response
     
     def scan_callback(self, msg):
         """Store laser scan data for obstacle detection"""
@@ -185,12 +305,11 @@ class PathFollowing(Node):
         self.uturn_start_time = self.get_clock().now()
         self.get_logger().info('Starting U-turn maneuver: backward with right steering')
 
-    def send_goal_to_origin(self):
-        """Send goal to origin (0, 0) to request path back"""
-        goal_msg = Float32MultiArray()
-        goal_msg.data = [0.0, 0.0]
-        self.goal_pub.publish(goal_msg)
+    def request_path_to_origin(self):
+        """Request path back to origin (0, 0)"""
         self.get_logger().info('Requesting path to origin (0, 0)')
+        self.step = 3
+        self.request_path_to_goal(0.0, 0.0)
     
     def normalize_angle(self, angle):
         """Normalize angle to [-pi, pi]"""
@@ -254,17 +373,16 @@ class PathFollowing(Node):
                     twist.linear.x = 0.0
                     twist.angular.z = 0.0
             elif self.uturn_stage == 1:
-                # Stage 1: Go forward with left steering for 10 seconds
+                # Stage 1: Go forward with left steering
                 if elapsed < self.uturn_forward_duration:
                     twist.linear.x = self.uturn_speed  # Forward
                     twist.angular.z = self.uturn_steering  # Left steering
                     self.get_logger().info(f'U-turn stage 1: forward+left ({elapsed:.2f}s)', throttle_duration_sec=0.5)
                 else:
                     # U-turn complete
-                    self.step = 3  # Move to next step
                     self.uturn_start_time = None
                     self.get_logger().info('U-turn completed!')
-                    self.send_goal_to_origin()  # Request path to (0, 0)
+                    self.request_path_to_origin()  # Request path to (0, 0)
                     twist.linear.x = 0.0
                     twist.angular.z = 0.0
             
