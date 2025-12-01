@@ -7,6 +7,7 @@ from geometry_msgs.msg import PoseStamped
 from PIL import Image
 from nav_msgs.srv import GetMap
 import os
+import time 
 
 class PathToBitmap(Node):
     def __init__(self):
@@ -15,6 +16,8 @@ class PathToBitmap(Node):
         self.prefix = "rtabmap"   
         self.latest_map = None
         self.latest_path_pixels = []
+        
+        self.file_counter = 0
 
         # Get map via service
         self.get_map_client = self.create_client(GetMap, self.prefix + '/get_map')
@@ -31,6 +34,10 @@ class PathToBitmap(Node):
             self.path_callback,
             10
         )
+        
+        # remembers last goal 
+        self.last_goal = None
+
 
         self.get_logger().info("Waiting for map and path...")
 
@@ -42,25 +49,37 @@ class PathToBitmap(Node):
 
     def path_callback(self, msg: Path):
         self.latest_path_pixels = []
-    
+
         if self.latest_map is None:
             return
-    
+
         info = self.latest_map["info"]
         res = info.resolution
         ox = info.origin.position.x
         oy = info.origin.position.y
-    
+
         for pose in msg.poses:
             wx = pose.pose.position.x
             wy = pose.pose.position.y
-    
+
             gx = int((wx - ox) / res)
             gy = int((wy - oy) / res)
-    
+
             self.latest_path_pixels.append((gx, gy))
-    
+
+        # ----- NEW: Check if goal changed -----
+        new_goal = self.latest_path_pixels[-1]
+
+        if self.last_goal == new_goal:
+            self.get_logger().info("Goal unchanged → Skipping path rendering")
+            return
+
+        # Update last goal
+        self.last_goal = new_goal
+
+        # Goal changed → generate new BMP
         self.render_bitmap()
+
 
 
     def get_map_callback(self, future):
@@ -76,53 +95,56 @@ class PathToBitmap(Node):
             "info": response.map.info
         }
 
-        # Try generating bitmap
-        self.render_bitmap()
+        
+        self.get_logger().info("Map updated.")
 
 
     def render_bitmap(self):
-        """Render map + path to BMP file only when both map and path exist."""
         if self.latest_map is None:
             return
-        if self.latest_path_pixels is None or len(self.latest_path_pixels) == 0:
+        if not self.latest_path_pixels:
             return
-
+    
         grid = self.latest_map["grid"]
         info = self.latest_map["info"]
-
+    
         height, width = grid.shape
-
-        # Create empty RGB image
+    
         image = np.zeros((height, width, 3), dtype=np.uint8)
-
-        # ---- OCCUPANCY COLORS ----
-        image[grid == -1] = [160, 160, 160]    
-        image[grid >= 50] = [0, 0, 0]          
-        image[grid >= 0] = [255, 255, 255]     
-
-        # ---- DRAW RED PATH ----
+    
+        # Colors
+        image[grid == -1] = [160, 160, 160]
+        image[grid >= 50] = [0, 0, 0]
+        image[grid >= 0]  = [255, 255, 255]
+    
+        # Draw path
         for (gx, gy) in self.latest_path_pixels:
             if 0 <= gx < width and 0 <= gy < height:
                 image[gy, gx] = [255, 0, 0]
-
-        # ---- DRAW RED GOAL DOT ----
+    
+        # Draw goal (red)
         gx, gy = self.latest_path_pixels[-1]
         if 0 <= gx < width and 0 <= gy < height:
             image[gy, gx] = [255, 0, 0]
-
-        # Convert array → image
+    
+        # Convert → PIL image
         bmp = Image.fromarray(image)
-
-        # ---- CREATE ~/blob FOLDER ----
+    
+        # Create ~/blob directory
         home = os.path.expanduser("~")
         out_dir = os.path.join(home, "blob")
-        os.makedirs(out_dir, exist_ok=True)   # creates folder if missing
+        os.makedirs(out_dir, exist_ok=True)
+    
+        # Increment counter
+        self.file_counter += 1
+        filename = f"trajectory_object_{self.file_counter}.bmp"
+    
+        # Save inside ~/blob
+        full_path = os.path.join(out_dir, filename)
+        bmp.save(full_path)
+    
+        self.get_logger().info(f"Saved {full_path}")
 
-        # ---- SAVE INTO THAT FOLDER ----
-        filename = os.path.join(out_dir, "map_with_path.bmp")
-        bmp.save(filename)
-
-        self.get_logger().info(f"Bitmap saved in: {filename}")
 
 
 
