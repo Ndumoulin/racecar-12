@@ -18,6 +18,7 @@ from std_srvs.srv import Trigger
 from sensor_msgs.msg import Image, CameraInfo
 from geometry_msgs.msg import Twist, TransformStamped
 import message_filters
+from racecar_interfaces.srv import ReportDebris
 
 import tf2_ros
 from tf2_ros import Buffer, TransformListener
@@ -56,6 +57,10 @@ class BlobDetector(Node):
         # Service client pour replan_path
         self.replan_client = self.create_client(Trigger, '/replan_path')
         self.get_logger().info("En attente du service /replan_path...")
+
+        # Service client pour report_debris
+        self.report_client = self.create_client(ReportDebris, '/report_debris')
+        self.get_logger().info("En attente du service /report_debris...")
 
         # blob detector params
         params = cv2.SimpleBlobDetector_Params()
@@ -118,6 +123,31 @@ class BlobDetector(Node):
             if distance < 1.0:  # Moins de 1 mètre
                 return True
         return False
+
+    def report_debris_service(self, position_map, photo_filename):
+        """Appelle le service /report_debris pour signaler un nouveau débris"""
+        if not self.report_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warn("Service /report_debris non disponible")
+            return
+       
+        request = ReportDebris.Request()
+        request.photo_filename = photo_filename
+        request.position.x = float(position_map[0])
+        request.position.y = float(position_map[1])
+        request.position.z = 0.0
+       
+        future = self.report_client.call_async(request)
+        future.add_done_callback(self.report_callback)
+ 
+    def report_callback(self, future):
+        try:
+            response = future.result()
+            if response.success:
+                self.get_logger().info(f"Report réussi: {response.message}")
+            else:
+                self.get_logger().warn(f"Report échoué: {response.message}")
+        except Exception as e:
+            self.get_logger().error(f"Erreur lors du report: {e}")
 
     def save_photo(self, cv_image, debris_id):
         """Sauvegarde une photo du débris"""
@@ -342,7 +372,7 @@ class BlobDetector(Node):
                         if debris_pos_map is not None:
                             self.current_debris_position = debris_pos_map
                             self.get_logger().info(f"Photo du débris à [{debris_pos_map[0]:.2f}, {debris_pos_map[1]:.2f}]")
-                            #self.report_debris_service(self.current_debris_position, f"debris_{debris_id}.jpg")
+                            self.report_debris_service(self.current_debris_position, f"debris_{debris_id}.jpg")
                     
                         # Démarrer le timer de 5 secondes
                         self.stop_until = current_time + Duration(seconds=5.0)
