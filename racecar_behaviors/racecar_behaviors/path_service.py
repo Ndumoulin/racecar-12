@@ -36,8 +36,6 @@ class AStarPlannerService(Node):
         )
 
         self.get_logger().info("A* planner service initialized. Call '/plan_path' service to get a path.")
-        
-        self.max_safe_cost = 75
 
     # -------------------------
     #   Costmap updated
@@ -49,10 +47,6 @@ class AStarPlannerService(Node):
     #   Service callback
     # -------------------------
     def plan_path_callback(self, request, response):
-        """
-        Service callback that receives a GetPlan request with start and goal poses
-        and returns a Path
-        """
         self.get_logger().info("Received path planning request")
 
         if self.costmap is None:
@@ -60,7 +54,7 @@ class AStarPlannerService(Node):
             response.plan = Path()
             return response
 
-        # Extract start and goal from request
+        # Extract start and goal
         start_x = request.start.pose.position.x
         start_y = request.start.pose.position.y
         goal_x = request.goal.pose.position.x
@@ -68,21 +62,12 @@ class AStarPlannerService(Node):
 
         self.get_logger().info(f"Planning from ({start_x:.2f}, {start_y:.2f}) to ({goal_x:.2f}, {goal_y:.2f})")
 
-        # Convert to grid coordinates
         sx, sy = self.world_to_grid(start_x, start_y)
         gx, gy = self.world_to_grid(goal_x, goal_y)
 
-        # Check bounds
-        w = self.costmap.info.width
-        h = self.costmap.info.height
-
-        if not (0 <= sx < w and 0 <= sy < h):
-            self.get_logger().error("Start pose is OUTSIDE the costmap!")
-            response.plan = Path()
-            return response
-
-        if not (0 <= gx < w and 0 <= gy < h):
-            self.get_logger().error("Goal pose is OUTSIDE the costmap!")
+        w, h = self.costmap.info.width, self.costmap.info.height
+        if not (0 <= sx < w and 0 <= sy < h) or not (0 <= gx < w and 0 <= gy < h):
+            self.get_logger().error("Start or goal OUTSIDE costmap!")
             response.plan = Path()
             return response
 
@@ -98,7 +83,6 @@ class AStarPlannerService(Node):
         path_msg = Path()
         path_msg.header.frame_id = "racecar/map"
         path_msg.header.stamp = self.get_clock().now().to_msg()
-
         for (cx, cy) in path_cells:
             wx, wy = self.grid_to_world(cx, cy)
             pose = PoseStamped()
@@ -111,7 +95,6 @@ class AStarPlannerService(Node):
 
         response.plan = path_msg
         self.get_logger().info(f"Returning path with {len(path_msg.poses)} points")
-        
         return response
 
     # -------------------------
@@ -124,9 +107,7 @@ class AStarPlannerService(Node):
                 "racecar/base_footprint",
                 rclpy.time.Time()
             )
-            x = tf.transform.translation.x
-            y = tf.transform.translation.y
-            return x, y
+            return tf.transform.translation.x, tf.transform.translation.y
         except Exception as e:
             self.get_logger().warn(f"TF unavailable: {e}", throttle_duration_sec=2.0)
             return None
@@ -137,9 +118,7 @@ class AStarPlannerService(Node):
     def world_to_grid(self, x, y):
         origin = self.costmap.info.origin.position
         res = self.costmap.info.resolution
-        gx = int((x - origin.x) / res)
-        gy = int((y - origin.y) / res)
-        return gx, gy
+        return int((x - origin.x) / res), int((y - origin.y) / res)
 
     def grid_to_world(self, gx, gy):
         origin = self.costmap.info.origin.position
@@ -150,21 +129,28 @@ class AStarPlannerService(Node):
     #   Free cell check
     # -------------------------
     def is_free(self, gx, gy):
-        w = self.costmap.info.width
-        h = self.costmap.info.height
+        w, h = self.costmap.info.width, self.costmap.info.height
         if gx < 0 or gy < 0 or gx >= w or gy >= h:
             return False
 
         cost = self.costmap.data[gy * w + gx]
-
-        if cost < 0:         # unknown space
+        if cost < 0 or cost >= 100:   # unknown or lethal
             return False
-        if cost >= 100:      # lethal obstacle
-            return False
-        if cost > self.max_safe_cost:   # too close to obstacle
-            return False
-
         return True
+
+    # -------------------------
+    #   Penalty for being near walls
+    # -------------------------
+    def inflation_penalty(self, gx, gy):
+        """Prefer cells far from obstacles. Returns small extra cost."""
+        w = self.costmap.info.width
+        cost = self.costmap.data[gy * w + gx]
+
+        if cost < 0 or cost >= 100:
+            return 1000  # avoid unknown/lethal cells
+
+        # Quadratic penalty (0 free → 0, 100 → big)
+        return (cost / 100.0) ** 2 * 5.0
 
     # -------------------------
     #   A* Algorithm
@@ -172,27 +158,18 @@ class AStarPlannerService(Node):
     def a_star(self, start, goal):
         sx, sy = start
         gx, gy = goal
-        
-        # Validate start and goal
-        if not self.is_free(sx, sy):
-            self.get_logger().error(f"Start cell ({sx}, {sy}) is not free!")
-            return None
-        if not self.is_free(gx, gy):
-            self.get_logger().error(f"Goal cell ({gx}, {gy}) is not free!")
+
+        if not self.is_free(sx, sy) or not self.is_free(gx, gy):
+            self.get_logger().error("Start or goal not free!")
             return None
 
         open_set = []
         heapq.heappush(open_set, (0, (sx, sy)))
-
-        gscore = { (sx, sy): 0 }
+        gscore = {(sx, sy): 0}
         came_from = {}
-        
         nodes_expanded = 0
 
-        directions = [
-            (1,0), (-1,0), (0,1), (0,-1),
-            (1,1), (1,-1), (-1,1), (-1,-1)
-        ]
+        directions = [(1,0), (-1,0), (0,1), (0,-1), (1,1), (1,-1), (-1,1), (-1,-1)]
 
         while open_set:
             _, current = heapq.heappop(open_set)
@@ -209,7 +186,8 @@ class AStarPlannerService(Node):
                     continue
 
                 step_cost = math.hypot(dx, dy)
-                new_g = gscore[current] + step_cost
+                inflation = self.inflation_penalty(nx, ny)
+                new_g = gscore[current] + step_cost + inflation
 
                 if (nx, ny) not in gscore or new_g < gscore[(nx, ny)]:
                     gscore[(nx, ny)] = new_g

@@ -19,7 +19,7 @@ class PathFollowing(Node):
         self.distance = self.declare_parameter('distance', 0.7).value
         self.distance_short = self.declare_parameter('distance_short', 0.45).value
         self.max_speed = self.declare_parameter('max_speed', 0.5).value
-        self.max_steering = self.declare_parameter('max_steering', 0.37).value
+        self.max_steering = self.declare_parameter('max_steering', 0.5).value
         
         # Pure Pursuit parameters
         self.lookahead_distance = self.declare_parameter('lookahead_distance', 1.5).value
@@ -40,8 +40,8 @@ class PathFollowing(Node):
         # U-turn state machine
         self.uturn_stage = 0  # 0: backward+right, 1: left+straight
         self.uturn_start_time = None
-        self.uturn_backward_duration = 10  # seconds to go backward
-        self.uturn_forward_duration = 3  # seconds to go forward
+        self.uturn_backward_duration = 8  # seconds to go backward
+        self.uturn_forward_duration = 2  # seconds to go forward
         self.uturn_speed = 0.3
         self.uturn_steering = 0.5
         
@@ -51,19 +51,12 @@ class PathFollowing(Node):
         
         # Publishers & Subscribers
         self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', 1)
+        self.path_pub = self.create_publisher(Path, '/racecar_path', 1)
         self.scan_sub = self.create_subscription(LaserScan, 'scan', self.scan_callback, 1)
         self.odom_sub = self.create_subscription(Odometry, '/racecar/odom', self.odom_callback, 1)
         
         # Service client for path planning
         self.path_client = self.create_client(GetPlan, '/plan_path')
-        
-        # Subscriber to receive new paths that can override current path
-        self.path_override_sub = self.create_subscription(
-            Path,
-            '/override_path',
-            self.override_path_callback,
-            10
-        )
         
         # Service to trigger path replanning
         self.replan_service = self.create_service(
@@ -78,7 +71,6 @@ class PathFollowing(Node):
             self.get_logger().info('Service not available, waiting...')
         
         self.get_logger().info('Path planning service available!')
-        self.get_logger().info('Listening for path overrides on /override_path')
         self.get_logger().info('Replan service ready on /replan_path')
         
         # Control timer
@@ -145,46 +137,35 @@ class PathFollowing(Node):
         except Exception as e:
             self.get_logger().error(f'Service call failed: {e}')
     
-    def override_path_callback(self, msg):
-        """Callback to receive and set a new path from external source"""
-        if len(msg.poses) > 0:
-            self.current_path = msg
-            self.get_logger().info(f'Path overridden! New path has {len(msg.poses)} points')
-            # If we were waiting for a path (step 0 or 3), transition to following
-            if self.step == 0:
-                self.step = 1
-            elif self.step == 3:
-                self.step = 1  # Follow the new path
-        else:
-            self.get_logger().warn('Received empty override path, ignoring')
-    
     def replan_callback(self, request, response):
-        """Service to trigger replanning to current goal or origin based on step"""
-        try:
-            if self.step == 1:
-                # Replanning to original goal
-                self.get_logger().info(f'Replanning path to goal ({self.goal_x}, {self.goal_y})')
-                self.request_path_to_goal(self.goal_x, self.goal_y)
-                response.success = True
-                response.message = f'Replanning to goal ({self.goal_x}, {self.goal_y})'
-            elif self.step == 3:
-                # Replanning to origin
-                self.get_logger().info('Replanning path to origin (0, 0)')
-                self.request_path_to_goal(0.0, 0.0)
-                response.success = True
-                response.message = 'Replanning to origin (0, 0)'
-            else:
-                self.get_logger().warn(f'Cannot replan in current step: {self.step}')
-                response.success = False
-                response.message = f'Cannot replan in step {self.step} (only steps 1 or 3)'
-            
-            return response
-            
-        except Exception as e:
-            self.get_logger().error(f'Replanning failed: {e}')
-            response.success = False
-            response.message = f'Error: {str(e)}'
-            return response
+        self.get_logger().info(
+            f"[REPLAN] Replanning path to goal ({self.goal_x}, {self.goal_y})"
+        )
+        self.request_path_to_goal(self.goal_x, self.goal_y)
+        response.success = True
+        response.message = "Path replanned successfully."
+        return response
+        
+    def publish_current_path(self):
+        """Publish the current path as a nav_msgs/Path message."""
+        if self.current_path is None:
+            return
+        
+        # Create a Path message
+        path_msg = Path()
+        path_msg.header.frame_id = "racecar/map"
+        path_msg.header.stamp = self.get_clock().now().to_msg()
+
+        # Copy poses
+        for pose in self.current_path.poses:
+            ps = PoseStamped()
+            ps.header.frame_id = "racecar/map"
+            ps.header.stamp = path_msg.header.stamp
+            ps.pose = pose.pose
+            path_msg.poses.append(ps)
+
+        self.path_pub.publish(path_msg)
+
     
     def scan_callback(self, msg):
         """Store laser scan data for obstacle detection"""
@@ -306,10 +287,13 @@ class PathFollowing(Node):
         self.get_logger().info('Starting U-turn maneuver: backward with right steering')
 
     def request_path_to_origin(self):
-        """Request path back to origin (0, 0)"""
+        self.goal_x = 0.0
+        self.goal_y = 0.0
+
         self.get_logger().info('Requesting path to origin (0, 0)')
         self.step = 3
-        self.request_path_to_goal(0.0, 0.0)
+        self.request_path_to_goal(self.goal_x, self.goal_y)
+
     
     def normalize_angle(self, angle):
         """Normalize angle to [-pi, pi]"""
@@ -439,6 +423,7 @@ class PathFollowing(Node):
             )
         
         self.cmd_vel_pub.publish(twist)
+        self.publish_current_path()
 
 def main(args=None):
     rclpy.init(args=args)
