@@ -6,12 +6,13 @@ from nav_msgs.msg import OccupancyGrid, Path
 from geometry_msgs.msg import PoseStamped
 from PIL import Image
 from nav_msgs.srv import GetMap
+import os
 
 class PathToBitmap(Node):
     def __init__(self):
         super().__init__('path_to_bitmap')
 
-        self.prefix = "rtabmap"   # FIXED
+        self.prefix = "rtabmap"   
         self.latest_map = None
         self.latest_path_pixels = []
 
@@ -95,9 +96,9 @@ class PathToBitmap(Node):
         image = np.zeros((height, width, 3), dtype=np.uint8)
 
         # ---- OCCUPANCY COLORS ----
-        image[grid == -1] = [160, 160, 160]    # unknown
-        image[grid >= 50] = [0, 0, 0]          # obstacle
-        image[grid >= 0] = [255, 255, 255]     # free (0–49)
+        image[grid == -1] = [160, 160, 160]    
+        image[grid >= 50] = [0, 0, 0]          
+        image[grid >= 0] = [255, 255, 255]     
 
         # ---- DRAW RED PATH ----
         for (gx, gy) in self.latest_path_pixels:
@@ -112,10 +113,16 @@ class PathToBitmap(Node):
         # Convert array → image
         bmp = Image.fromarray(image)
 
-        # Save BMP
-        filename = "map_with_path.bmp"
+        # ---- CREATE ~/blob FOLDER ----
+        home = os.path.expanduser("~")
+        out_dir = os.path.join(home, "blob")
+        os.makedirs(out_dir, exist_ok=True)   # creates folder if missing
+
+        # ---- SAVE INTO THAT FOLDER ----
+        filename = os.path.join(out_dir, "map_with_path.bmp")
         bmp.save(filename)
-        self.get_logger().info(f"Bitmap saved: {filename}")
+
+        self.get_logger().info(f"Bitmap saved in: {filename}")
 
 
 
