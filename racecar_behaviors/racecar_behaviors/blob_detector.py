@@ -342,7 +342,8 @@ class BlobDetector(Node):
                         if debris_pos_map is not None:
                             self.current_debris_position = debris_pos_map
                             self.get_logger().info(f"Photo du débris à [{debris_pos_map[0]:.2f}, {debris_pos_map[1]:.2f}]")
-                        
+                            #self.report_debris_service(self.current_debris_position, f"debris_{debris_id}.jpg")
+                    
                         # Démarrer le timer de 5 secondes
                         self.stop_until = current_time + Duration(seconds=5.0)
                         self.get_logger().info("Photo prise! Attente de 5 secondes...")

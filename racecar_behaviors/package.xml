@@ -21,6 +21,7 @@
   <depend>geometry_msgs</depend>
   <depend>std_srvs</depend>
   <depend>visualization_msgs</depend>
+  <depend>racecar_interfaces</depend>
 
 
 

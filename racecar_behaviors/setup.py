@@ -37,6 +37,7 @@ setup(
             'u_turn = racecar_behaviors.u_turn:main',
             'u_turn_goal = racecar_behaviors.u_turn_goal:main',
             'labo_brushfire = racecar_behaviors.labo_brushfire:main',
+            'report_handler = racecar_behaviors.report_handler:main',
         ],
     },
 )
