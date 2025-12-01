@@ -14,8 +14,10 @@ class ReportHandler(Node):
         
         # File setup
         self.report_file = os.path.expanduser('~/debris_report.txt')
-        with open(self.report_file, 'a') as f:
-            f.write(f"\n--- Session Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---\n")
+        
+        # Overwrite file on startup (mode 'w')
+        with open(self.report_file, 'w') as f:
+            pass # Create/Clear file
             
         self.get_logger().info(f'Report Handler Service Ready. Writing to {self.report_file}')
 
@@ -28,7 +30,8 @@ class ReportHandler(Node):
             self.reports.append(report_entry)
             
             # Write to file
-            log_line = f"Photo: {request.photo_filename}, Position: ({request.position.x:.2f}, {request.position.y:.2f})\n"
+            # Format: x y photo.png trajectory.bmp
+            log_line = f"{request.position.x:.2f} {request.position.y:.2f} {request.photo_filename} trajectory.bmp\n"
             with open(self.report_file, 'a') as f:
                 f.write(log_line)
             
