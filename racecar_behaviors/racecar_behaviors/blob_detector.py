@@ -15,9 +15,12 @@ import numpy as np
 from std_msgs.msg import String
 from std_srvs.srv import Trigger
 from sensor_msgs.msg import Image, CameraInfo
-from geometry_msgs.msg import Twist, TransformStamped
+from geometry_msgs.msg import Twist, TransformStamped, PoseStamped
 import message_filters
 from racecar_interfaces.srv import ReportDebris
+
+# NEW: GetPlan service to request path from path_service
+from nav_msgs.srv import GetPlan
 
 import tf2_ros
 from tf2_ros import Buffer, TransformListener
@@ -59,6 +62,10 @@ class BlobDetector(Node):
 
         self.report_client = self.create_client(ReportDebris, '/report_debris')
         self.get_logger().info("En attente du service /report_debris...")
+
+        # NEW: path planning client
+        self.plan_client = self.create_client(GetPlan, '/plan_path')
+        self.get_logger().info("En attente du service /plan_path...")
 
         params = cv2.SimpleBlobDetector_Params()
         params.thresholdStep = 10
@@ -169,6 +176,55 @@ class BlobDetector(Node):
         except Exception as e:
             self.get_logger().error(f"Erreur lors de la replanification: {e}")
             self.replan_requested = True
+
+    # NEW: call path service to request a path from (0,0) to the debris position
+    def call_plan_service(self, goal_map_xy):
+        if not self.plan_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warn("Service /plan_path non disponible, impossible de demander un chemin")
+            return
+
+        # Build start pose (0,0) in map frame
+        start_pose = PoseStamped()
+        start_pose.header.frame_id = self.map_frame_id
+        start_pose.header.stamp = self.get_clock().now().to_msg()
+        start_pose.pose.position.x = 0.0
+        start_pose.pose.position.y = 0.0
+        start_pose.pose.position.z = 0.0
+        start_pose.pose.orientation.w = 1.0
+
+        # Build goal pose from goal_map_xy
+        goal_pose = PoseStamped()
+        goal_pose.header.frame_id = self.map_frame_id
+        goal_pose.header.stamp = self.get_clock().now().to_msg()
+        goal_pose.pose.position.x = float(goal_map_xy[0])
+        goal_pose.pose.position.y = float(goal_map_xy[1])
+        goal_pose.pose.position.z = 0.0
+        goal_pose.pose.orientation.w = 1.0
+
+        request = GetPlan.Request()
+        request.start = start_pose
+        request.goal = goal_pose
+        # tolerance: optional; keep default (0.0) or set small value if desired
+        request.tolerance = 0.5
+
+        future = self.plan_client.call_async(request)
+        future.add_done_callback(self.plan_callback)
+        self.get_logger().info(f"Requesting path to ({goal_map_xy[0]:.2f}, {goal_map_xy[1]:.2f})")
+
+    def plan_callback(self, future):
+        try:
+            response = future.result()
+            # response.plan is a nav_msgs/Path
+            if response is None:
+                self.get_logger().warn("Plan service returned None")
+                return
+            path_len = len(response.plan.poses) if response.plan is not None else 0
+            if path_len > 0:
+                self.get_logger().info(f"Path generated with {path_len} points.")
+            else:
+                self.get_logger().warn("Plan returned empty path.")
+        except Exception as e:
+            self.get_logger().error(f"Error calling plan service: {e}")
 
     def image_callback(self, image_msg, depth_msg, info_msg):
         try:
@@ -397,7 +453,13 @@ class BlobDetector(Node):
                             self.current_debris_position = debris_pos_map
                             self.get_logger().info(f"Photo du débris à [{debris_pos_map[0]:.2f}, {debris_pos_map[1]:.2f}]")
                             self.report_debris_service(self.current_debris_position, f"debris_{debris_id}.jpg")
-                    
+
+                            # NEW: request a path with start (0,0) and goal = debris_pos_map
+                            try:
+                                self.call_plan_service(self.current_debris_position)
+                            except Exception as e:
+                                self.get_logger().error(f"Failed to request path: {e}")
+                        
                         self.stop_until = current_time + Duration(seconds=5.0)
                         self.get_logger().info("Photo prise! Attente de 5 secondes...")
 
