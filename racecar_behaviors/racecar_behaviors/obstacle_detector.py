@@ -9,20 +9,18 @@ class ObstacleDetector(Node):
     def __init__(self):
         super().__init__('obstacle_detector')
         
-        # Distance de détection
-        self.front_limit = 0.75     # 75 cm
-        self.back_limit  = 0.75     # 75 cm
-        self.backup_distance = 1.5  # Distance de recul en mètres
+        self.front_limit = 0.75
+        self.safe_distance = 1.5
+        self.back_limit = 0.75
+        self.backup_distance = 1.5
         
-        # Machine à états
-        self.state = 'NORMAL'  # NORMAL, STOPPING, BACKING_UP, WAITING
+        self.state = 'NORMAL'
         self.initial_position = 0.0
-        self.backup_speed = -0.3  # Vitesse de recul (m/s)
+        self.backup_speed = -0.3
         
         self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', 1)
         self.scan_sub = self.create_subscription(LaserScan, 'scan', self.scan_callback, 1)
         
-        # Timer pour estimer la distance parcourue
         self.last_time = self.get_clock().now()
         self.distance_traveled = 0.0
         
@@ -30,24 +28,22 @@ class ObstacleDetector(Node):
         n = len(msg.ranges)
         half = n // 2
         
-        # Recentrer le LIDAR
         ranges = msg.ranges[half:] + msg.ranges[:half]
         
-        # Définition des secteurs
         front_start = half - half//8
-        front_end   = half + half//8
-        back_start  = half//8
-        back_end    = 3*half//8
+        front_end = half + half//8
+        back_start = half//8
+        back_end = 3*half//8
         
-        # --- Détection obstacle avant ---
         obstacle_front = False
+        min_front_distance = float('inf')
         for i in range(front_start, front_end):
             d = ranges[i]
-            if np.isfinite(d) and 0 < d < self.front_limit:
-                obstacle_front = True
-                break
+            if np.isfinite(d) and d > 0:
+                min_front_distance = min(min_front_distance, d)
+                if d < self.front_limit:
+                    obstacle_front = True
         
-        # --- Détection obstacle arrière ---
         obstacle_back = False
         for i in range(back_start, back_end):
             d = ranges[i]
@@ -55,7 +51,6 @@ class ObstacleDetector(Node):
                 obstacle_back = True
                 break
         
-        # --- MACHINE À ÉTATS ---
         twist = Twist()
         current_time = self.get_clock().now()
         dt = (current_time - self.last_time).nanoseconds / 1e9
@@ -63,18 +58,15 @@ class ObstacleDetector(Node):
         
         if self.state == 'NORMAL':
             if obstacle_front:
-                # Obstacle détecté → passer en mode STOPPING
                 self.state = 'STOPPING'
                 twist.linear.x = 0.0
                 self.distance_traveled = 0.0
                 self.get_logger().info("⚠ Obstacle détecté à <0.75m → ARRÊT")
                 self.cmd_vel_pub.publish(twist)
             else:
-                # Aucun obstacle → ne pas publier (laisser l'autre nœud commander)
                 return
                 
         elif self.state == 'STOPPING':
-            # Robot arrêté, passer au recul si l'arrière est libre
             twist.linear.x = 0.0
             if obstacle_back:
                 self.get_logger().info("⚠ Obstacle arrière détecté → impossible de reculer")
@@ -85,38 +77,31 @@ class ObstacleDetector(Node):
                 self.get_logger().info("↩ Début du recul de 1.5m")
                 
         elif self.state == 'BACKING_UP':
-            # Calculer la distance parcourue
             self.distance_traveled += abs(self.backup_speed) * dt
             
             if obstacle_back:
-                # Obstacle arrière détecté pendant le recul → arrêt
                 twist.linear.x = 0.0
                 self.get_logger().warn("⚠ Obstacle arrière pendant le recul → arrêt")
                 self.state = 'WAITING'
             elif self.distance_traveled >= self.backup_distance:
-                # Distance de recul atteinte → arrêt et attente
                 twist.linear.x = 0.0
                 self.state = 'WAITING'
                 self.get_logger().info("✓ Recul de 1.5m terminé → ATTENTE")
             else:
-                # Continuer le recul
                 twist.linear.x = self.backup_speed
                 self.get_logger().info(f"↩ Recul en cours: {self.distance_traveled:.2f}m / {self.backup_distance}m")
             
             self.cmd_vel_pub.publish(twist)
             
         elif self.state == 'WAITING':
-            # Attendre que l'obstacle avant disparaisse
             twist.linear.x = 0.0
             
-            if not obstacle_front:
-                # Obstacle disparu → retour à la normale
+            if min_front_distance > self.safe_distance:
                 self.state = 'NORMAL'
-                self.get_logger().info("✓ Obstacle disparu → reprise normale")
-                # Ne pas publier, laisser l'autre nœud reprendre le contrôle
+                self.get_logger().info(f"✓ Obstacle maintenant à {min_front_distance:.2f}m (>1.5m) → reprise normale")
                 return
             else:
-                self.get_logger().info("⏸ En attente que l'obstacle disparaisse...")
+                self.get_logger().info(f"⏸ En attente: obstacle à {min_front_distance:.2f}m (doit être >1.5m)")
             
             self.cmd_vel_pub.publish(twist)
 
