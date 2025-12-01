@@ -49,6 +49,13 @@ def launch_setup(context, *args, **kwargs):
         parameters=[{'map_frame_id': 'racecar/map', 'frame_id': 'racecar/base_footprint',
                      'object_frame_id': 'racecar/object', 'color_hue': 100}]
     )
+    
+    path_to_bitmap_node = Node(
+        package='racecar_behaviors',
+        executable='path_to_bitmap',
+        name='path_to_bitmap',
+        output='screen'
+    )
 
     # Define debug nodes
     point_cloud_xyzrgb_node = Node(
@@ -106,6 +113,7 @@ def launch_setup(context, *args, **kwargs):
             laserscan_to_pointcloud_node,
             pointcloud_to_depthimage_node,
             blob_detector_node,
+            path_to_bitmap_node,
             debug_group]
 
 

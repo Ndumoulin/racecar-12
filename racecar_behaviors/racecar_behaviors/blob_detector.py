@@ -15,12 +15,13 @@ import numpy as np
 from std_msgs.msg import String
 from std_srvs.srv import Trigger
 from sensor_msgs.msg import Image, CameraInfo
-from geometry_msgs.msg import Twist, TransformStamped, PoseStamped
+from geometry_msgs.msg import Twist, TransformStamped, PoseStamped, Pose
 import message_filters
-from racecar_interfaces.srv import ReportDebris
+from racecar_interfaces.srv import ReportDebris, PathToBitmap
 
-# NEW: GetPlan service to request path from path_service
+# GetPlan service to request path from path_service
 from nav_msgs.srv import GetPlan
+from nav_msgs.msg import Path as PathMsg
 
 import tf2_ros
 from tf2_ros import Buffer, TransformListener
@@ -63,9 +64,14 @@ class BlobDetector(Node):
         self.report_client = self.create_client(ReportDebris, '/report_debris')
         self.get_logger().info("En attente du service /report_debris...")
 
-        # NEW: path planning client
+        # path planning client (A*)
         self.plan_client = self.create_client(GetPlan, '/plan_path')
         self.get_logger().info("En attente du service /plan_path...")
+
+        # bitmap generator client (path -> .bmp)
+        # service provided by your path_to_bitmap.py; using racecar_interfaces.srv.PathToBitmap
+        self.bitmap_client = self.create_client(PathToBitmap, 'path_to_bitmap')
+        self.get_logger().info("En attente du service path_to_bitmap...")
 
         params = cv2.SimpleBlobDetector_Params()
         params.thresholdStep = 10
@@ -177,7 +183,9 @@ class BlobDetector(Node):
             self.get_logger().error(f"Erreur lors de la replanification: {e}")
             self.replan_requested = True
 
-    # NEW: call path service to request a path from (0,0) to the debris position
+    # -------------------------
+    #   Call A* planner (/plan_path)
+    # -------------------------
     def call_plan_service(self, goal_map_xy):
         if not self.plan_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().warn("Service /plan_path non disponible, impossible de demander un chemin")
@@ -211,20 +219,89 @@ class BlobDetector(Node):
         future.add_done_callback(self.plan_callback)
         self.get_logger().info(f"Requesting path to ({goal_map_xy[0]:.2f}, {goal_map_xy[1]:.2f})")
 
+    # -------------------------
+    #   Plan callback: forward path to bitmap service
+    # -------------------------
     def plan_callback(self, future):
         try:
             response = future.result()
-            # response.plan is a nav_msgs/Path
             if response is None:
                 self.get_logger().warn("Plan service returned None")
                 return
-            path_len = len(response.plan.poses) if response.plan is not None else 0
+
+            path = response.plan  # nav_msgs/Path
+
+            path_len = len(path.poses) if path is not None else 0
             if path_len > 0:
-                self.get_logger().info(f"Path generated with {path_len} points.")
+                self.get_logger().info(f"Path generated with {path_len} points. Forwarding to bitmap service...")
+                # Forward to bitmap generator
+                self.call_bitmap_service(path)
             else:
                 self.get_logger().warn("Plan returned empty path.")
         except Exception as e:
             self.get_logger().error(f"Error calling plan service: {e}")
+
+    # -------------------------
+    #   Bitmap service helper
+    # -------------------------
+    def call_bitmap_service(self, path_msg):
+        """
+        path_msg: expected nav_msgs/Path (Path instance)
+        The PathToBitmap.srv may accept either a Path or a list of Pose/PoseStamped.
+        We try a few assignments to be robust.
+        """
+        if not self.bitmap_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warn("Bitmap service not available: path_to_bitmap")
+            return
+
+        req = PathToBitmap.Request()
+
+        # Try to set request in several forms to handle different .srv definitions:
+        # 1) service expects a nav_msgs/Path
+        # 2) service expects a sequence of PoseStamped (Path.poses)
+        # 3) service expects a sequence of Pose (extract .pose)
+        assigned = False
+        try:
+            # Attempt 1: assign the full Path
+            req.path = path_msg
+            assigned = True
+        except Exception:
+            pass
+
+        if not assigned:
+            try:
+                # Attempt 2: assign list of PoseStamped
+                req.path = path_msg.poses
+                assigned = True
+            except Exception:
+                pass
+
+        if not assigned:
+            try:
+                # Attempt 3: assign list of Pose
+                req.path = [ps.pose for ps in path_msg.poses]
+                assigned = True
+            except Exception:
+                pass
+
+        if not assigned:
+            self.get_logger().error("Failed to populate PathToBitmap request: incompatible srv field 'path'.")
+            return
+
+        self.get_logger().info("Sending path to bitmap generator service...")
+        future = self.bitmap_client.call_async(req)
+        future.add_done_callback(self.bitmap_response_callback)
+
+    def bitmap_response_callback(self, future):
+        try:
+            result = future.result()
+            # try to log fields commonly present
+            if hasattr(result, 'success'):
+                self.get_logger().info(f"Bitmap service success: {bool(result.success)}")
+            if hasattr(result, 'filepath'):
+                self.get_logger().info(f"Bitmap saved at: {result.filepath}")
+        except Exception as e:
+            self.get_logger().error(f"Bitmap service call failed: {e}")
 
     def image_callback(self, image_msg, depth_msg, info_msg):
         try:
@@ -454,8 +531,9 @@ class BlobDetector(Node):
                             self.get_logger().info(f"Photo du débris à [{debris_pos_map[0]:.2f}, {debris_pos_map[1]:.2f}]")
                             self.report_debris_service(self.current_debris_position, f"debris_{debris_id}.jpg")
 
-                            # NEW: request a path with start (0,0) and goal = debris_pos_map
+                            # --- NEW behavior: request A* path then generate bitmap ---
                             try:
+                                # call planner (A*) which will call plan_callback when done
                                 self.call_plan_service(self.current_debris_position)
                             except Exception as e:
                                 self.get_logger().error(f"Failed to request path: {e}")

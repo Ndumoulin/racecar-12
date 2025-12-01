@@ -1,159 +1,95 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-import numpy as np
-from nav_msgs.msg import OccupancyGrid, Path
-from geometry_msgs.msg import PoseStamped
-from PIL import Image
-from nav_msgs.srv import GetMap
-import os
 
-class PathToBitmap(Node):
+from geometry_msgs.msg import Pose
+from racecar_interfaces.srv import PathToBitmap
+
+from PIL import Image
+import os
+import re
+
+class PathToBitmapNode(Node):
     def __init__(self):
         super().__init__('path_to_bitmap')
 
-        self.prefix = "rtabmap"   
-        self.latest_map = None
-        self.latest_path_pixels = []
-        
-        self.file_counter = 0
-
-        # Get map via service
-        self.get_map_client = self.create_client(GetMap, self.prefix + '/get_map')
-        while not self.get_map_client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('Service not available, waiting again...')
-
-        # Timer to call the service
-        self.timer = self.create_timer(1.0, self.timer_callback)
-
-        # Subscribe to the path
-        self.path_sub = self.create_subscription(
-            Path,
-            '/a_star_path',
-            self.path_callback,
-            10
+        self.srv = self.create_service(
+            PathToBitmap,
+            'path_to_bitmap',
+            self.callback
         )
-        
-        # remembers last goal 
-        self.last_goal = None
 
+        self.report_dir = os.path.expanduser('~/debris_report')
+        os.makedirs(self.report_dir, exist_ok=True)
 
-        self.get_logger().info("Waiting for map and path...")
+        self.get_logger().info("Bitmap generator ready.")
 
-        
-    def timer_callback(self):
-            request = GetMap.Request()
-            future = self.get_map_client.call_async(request)
-            future.add_done_callback(self.get_map_callback)
+    def extract_photo_id(self, photo_filename):
+        """
+        Extract number from debris_xxx.jpg or debris_xxx.jpeg.
+        Returns string like '017'. If extraction fails, return '000'.
+        """
+        m = re.search(r'(\d+)', photo_filename)
+        if m:
+            return m.group(1)
+        return "000"
 
-    def path_callback(self, msg: Path):
-        self.latest_path_pixels = []
+    def callback(self, request, response):
+        path = request.path
+        photo_filename = request.photo_filename
 
-        if self.latest_map is None:
-            return
+        if len(path) == 0:
+            self.get_logger().error("Empty path!")
+            response.success = False
+            return response
 
-        info = self.latest_map["info"]
-        res = info.resolution
-        ox = info.origin.position.x
-        oy = info.origin.position.y
+        # Extract ID from filename
+        photo_id = self.extract_photo_id(photo_filename)
+        bmp_name = f"trajectory_{photo_id}.bmp"
+        bmp_path = os.path.join(self.report_dir, bmp_name)
 
-        for pose in msg.poses:
-            wx = pose.pose.position.x
-            wy = pose.pose.position.y
+        # -----------------------------
+        # Convert path to pixel coords
+        # -----------------------------
+        coords = [(int(p.position.x), int(p.position.y)) for p in path]
 
-            gx = int((wx - ox) / res)
-            gy = int((wy - oy) / res)
+        xs = [c[0] for c in coords]
+        ys = [c[1] for c in coords]
 
-            self.latest_path_pixels.append((gx, gy))
+        min_x, max_x = min(xs), max(xs)
+        min_y, max_y = min(ys), max(ys)
 
-        # ----- NEW: Check if goal changed -----
-        new_goal = self.latest_path_pixels[-1]
+        width  = max_x - min_x + 1
+        height = max_y - min_y + 1
 
-        if self.last_goal == new_goal:
-            self.get_logger().info("Goal unchanged → Skipping path rendering")
-            return
+        # -----------------------------
+        # Create BMP
+        # -----------------------------
+        img = Image.new("RGB", (width, height), color=(0,0,0))
+        pixels = img.load()
 
-        # Update last goal
-        self.last_goal = new_goal
+        # Draw path as white pixels
+        for (x, y) in coords:
+            px = x - min_x
+            py = y - min_y
+            pixels[px, py] = (0, 0, 255)
 
-        # Goal changed → generate new BMP
-        self.render_bitmap()
+        # Save file
+        img.save(bmp_path)
+        self.get_logger().info(f"Bitmap saved at: {bmp_path}")
 
-
-
-    def get_map_callback(self, future):
-        response = future.result()
-
-        h = response.map.info.height
-        w = response.map.info.width
-
-        grid = np.array(response.map.data, dtype=int).reshape((h, w))
-
-        self.latest_map = {
-            "grid": grid,
-            "info": response.map.info
-        }
-
-        
-        self.get_logger().info("Map updated.")
-
-
-    def render_bitmap(self):
-        if self.latest_map is None:
-            return
-        if not self.latest_path_pixels:
-            return
-
-        grid = self.latest_map["grid"]
-        info = self.latest_map["info"]
-
-        height, width = grid.shape
-
-        image = np.zeros((height, width, 3), dtype=np.uint8)
-
-        # Colors
-        image[grid == -1] = [160, 160, 160]
-        image[grid >= 50] = [0, 0, 0]
-        image[grid >= 0]  = [255, 255, 255]
-
-        # Draw path
-        for (gx, gy) in self.latest_path_pixels:
-            if 0 <= gx < width and 0 <= gy < height:
-                image[gy, gx] = [255, 0, 0]
-
-        # Draw goal (red)
-        gx, gy = self.latest_path_pixels[-1]
-        if 0 <= gx < width and 0 <= gy < height:
-            image[gy, gx] = [255, 0, 0]
-
-        # Convert → PIL image
-        bmp = Image.fromarray(image)
-
-        # Create ~/blob directory
-        home = os.path.expanduser("~")
-        out_dir = os.path.join(home, "blob")
-        os.makedirs(out_dir, exist_ok=True)
-
-        # Increment counter
-        self.file_counter += 1
-        filename = f"trajectory_object_{self.file_counter}.bmp"
-
-        # Save inside ~/blob
-        full_path = os.path.join(out_dir, filename)
-        bmp.save(full_path)
-
-        self.get_logger().info(f"Saved {full_path}")
-
-
+        response.success = True
+        response.filepath = bmp_path
+        return response
 
 
 def main(args=None):
     rclpy.init(args=args)
-    node = PathToBitmap()
+    node = PathToBitmapNode()
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
