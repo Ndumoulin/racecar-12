@@ -7,7 +7,6 @@ from geometry_msgs.msg import PoseStamped
 from PIL import Image
 from nav_msgs.srv import GetMap
 import os
-import time 
 
 class PathToBitmap(Node):
     def __init__(self):
@@ -104,45 +103,45 @@ class PathToBitmap(Node):
             return
         if not self.latest_path_pixels:
             return
-    
+
         grid = self.latest_map["grid"]
         info = self.latest_map["info"]
-    
+
         height, width = grid.shape
-    
+
         image = np.zeros((height, width, 3), dtype=np.uint8)
-    
+
         # Colors
         image[grid == -1] = [160, 160, 160]
         image[grid >= 50] = [0, 0, 0]
         image[grid >= 0]  = [255, 255, 255]
-    
+
         # Draw path
         for (gx, gy) in self.latest_path_pixels:
             if 0 <= gx < width and 0 <= gy < height:
                 image[gy, gx] = [255, 0, 0]
-    
+
         # Draw goal (red)
         gx, gy = self.latest_path_pixels[-1]
         if 0 <= gx < width and 0 <= gy < height:
             image[gy, gx] = [255, 0, 0]
-    
+
         # Convert → PIL image
         bmp = Image.fromarray(image)
-    
+
         # Create ~/blob directory
         home = os.path.expanduser("~")
         out_dir = os.path.join(home, "blob")
         os.makedirs(out_dir, exist_ok=True)
-    
+
         # Increment counter
         self.file_counter += 1
         filename = f"trajectory_object_{self.file_counter}.bmp"
-    
+
         # Save inside ~/blob
         full_path = os.path.join(out_dir, filename)
         bmp.save(full_path)
-    
+
         self.get_logger().info(f"Saved {full_path}")
 
 
