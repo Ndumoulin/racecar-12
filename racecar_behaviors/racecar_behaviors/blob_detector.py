@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-# Band-Aid to be able to use `ros2 launch`
 import sys
 if "/usr/local/lib/python3.12/dist-packages" in sys.path:
     sys.path.remove("/usr/local/lib/python3.12/dist-packages")
@@ -33,7 +32,6 @@ class BlobDetector(Node):
         super().__init__('blob_detector')
         self.bridge = CvBridge()
 
-        # params
         self.map_frame_id = self.declare_parameter('map_frame_id', 'map').value
         self.frame_id = self.declare_parameter('frame_id', 'base_link').value
         self.object_frame_id = self.declare_parameter('object_frame_id', 'object').value
@@ -43,26 +41,25 @@ class BlobDetector(Node):
         self.color_value = self.declare_parameter('color_value', 1).value
         self.border = self.declare_parameter('border', 1).value
 
-        # État de détection des débris
-        self.detected_debris_positions = []  # Liste de (x, y) dans le référentiel map
+        self.detected_debris_positions = []
         self.stop_until = None
         self.photo_taken = False
         self.current_debris_position = None
         self.replan_requested = False
         
-        # Créer un dossier pour sauvegarder les photos
-        self.photo_dir = os.path.expanduser("~/debris_photos")
+        self.approach_state = 'IDLE'
+        self.backup_start_time = None
+        self.initial_backup_distance = None
+        
+        self.photo_dir = os.path.expanduser("~/debris_report")
         os.makedirs(self.photo_dir, exist_ok=True)
         
-        # Service client pour replan_path
         self.replan_client = self.create_client(Trigger, '/replan_path')
         self.get_logger().info("En attente du service /replan_path...")
 
-        # Service client pour report_debris
         self.report_client = self.create_client(ReportDebris, '/report_debris')
         self.get_logger().info("En attente du service /report_debris...")
 
-        # blob detector params
         params = cv2.SimpleBlobDetector_Params()
         params.thresholdStep = 10
         params.minThreshold = 150
@@ -83,18 +80,15 @@ class BlobDetector(Node):
 
         self.detector = cv2.SimpleBlobDetector_create(params)
 
-        # TF
         self.br = tf2_ros.TransformBroadcaster(self)
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
-        # pubs / subs
         qos = QoSProfile(depth=10)
         self.image_pub = self.create_publisher(Image, 'image_detections', qos)
         self.object_pub = self.create_publisher(String, 'object_detected', qos)
         self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 1)
 
-        # synchronized subscribers (image, depth, camera_info)
         self.image_sub = message_filters.Subscriber(self, Image, 'image')
         self.depth_sub = message_filters.Subscriber(self, Image, 'depth')
         self.info_sub = message_filters.Subscriber(self, CameraInfo, 'camera_info')
@@ -104,7 +98,6 @@ class BlobDetector(Node):
         self.timer = self.create_timer(1.0, self.param_callback)
 
     def param_callback(self):
-        # update params if changed dynamically
         try:
             self.color_hue = self.get_parameter('color_hue').get_parameter_value().integer_value
             self.color_range = self.get_parameter('color_range').get_parameter_value().integer_value
@@ -116,16 +109,14 @@ class BlobDetector(Node):
             pass
 
     def is_debris_already_detected(self, position_map):
-        """Vérifie si un débris à cette position a déjà été détecté (< 1m)"""
         for prev_pos in self.detected_debris_positions:
             distance = np.sqrt((position_map[0] - prev_pos[0])**2 + 
                              (position_map[1] - prev_pos[1])**2)
-            if distance < 1.0:  # Moins de 1 mètre
+            if distance < 1.0:
                 return True
         return False
 
     def report_debris_service(self, position_map, photo_filename):
-        """Appelle le service /report_debris pour signaler un nouveau débris"""
         if not self.report_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().warn("Service /report_debris non disponible")
             return
@@ -150,7 +141,6 @@ class BlobDetector(Node):
             self.get_logger().error(f"Erreur lors du report: {e}")
 
     def save_photo(self, cv_image, debris_id):
-        """Sauvegarde une photo du débris"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = os.path.join(self.photo_dir, f"debris_{debris_id}_{timestamp}.jpg")
         cv2.imwrite(filename, cv_image)
@@ -158,10 +148,9 @@ class BlobDetector(Node):
         return filename
 
     def call_replan_service(self):
-        """Appelle le service /replan_path de manière asynchrone"""
         if not self.replan_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().warn("Service /replan_path non disponible")
-            self.replan_requested = True  # Marquer comme fait même si échec
+            self.replan_requested = True
             return
         
         request = Trigger.Request()
@@ -170,7 +159,6 @@ class BlobDetector(Node):
         self.get_logger().info("Demande de replanification du chemin envoyée...")
     
     def replan_callback(self, future):
-        """Callback appelé quand le service /replan_path répond"""
         try:
             response = future.result()
             if response.success:
@@ -180,18 +168,15 @@ class BlobDetector(Node):
             self.replan_requested = True
         except Exception as e:
             self.get_logger().error(f"Erreur lors de la replanification: {e}")
-            self.replan_requested = True  # Continuer quand même
+            self.replan_requested = True
 
     def image_callback(self, image_msg, depth_msg, info_msg):
-        """Main callback: detect blobs in RGB, validate with depth and control robot."""
-        # convert color image
         try:
             cv_image = self.bridge.imgmsg_to_cv2(image_msg, "bgr8")
         except CvBridgeError as e:
             self.get_logger().error(f"CV bridge error (image): {e}")
             return
 
-        # convert depth image
         try:
             if depth_msg.encoding == '32FC1' or depth_msg.encoding == '32FC3':
                 cv_depth = self.bridge.imgmsg_to_cv2(depth_msg, desired_encoding="32FC1")
@@ -205,7 +190,6 @@ class BlobDetector(Node):
             self.get_logger().warn(f"Failed to convert depth image: {e}")
             return
 
-        # camera intrinsics
         try:
             K = np.array(info_msg.k).reshape((3, 3))
             fx = K[0, 0]
@@ -216,7 +200,6 @@ class BlobDetector(Node):
             self.get_logger().warn(f"CameraInfo invalid: {e}")
             return
 
-        # create HSV mask
         try:
             hsv = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
         except Exception as e:
@@ -227,14 +210,11 @@ class BlobDetector(Node):
         upper = np.array([min(179, self.color_hue + self.color_range), 255, 255])
         mask = cv2.inRange(hsv, lower, upper)
 
-        # detect blobs on mask
         keypoints = self.detector.detect(mask)
 
-        # draw keypoints for debugging
         if len(keypoints) > 0:
             cv_image = cv2.drawKeypoints(cv_image, keypoints, np.array([]), (0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
 
-        # choose the keypoint with the smallest valid depth (closest)
         closest_idx = -1
         closest_depth = float('inf')
         closest_uv = None
@@ -267,9 +247,7 @@ class BlobDetector(Node):
                 closest_idx = i
                 closest_uv = (u_px, v_px)
 
-        # Process valid object
         if closest_idx != -1 and closest_depth > 0:
-            # Accepter objets entre 0.5 et 5.0 mètres pour la détection
             if 0.5 < closest_depth < 5.0:
                 u_px, v_px = closest_uv
                 z = closest_depth
@@ -280,7 +258,6 @@ class BlobDetector(Node):
 
                 rotObj = tf_transformations.quaternion_from_euler(0, np.pi/2, -np.pi/2)
 
-                # publish object TF
                 transform = TransformStamped()
                 transform.header = image_msg.header
                 transform.child_frame_id = self.object_frame_id
@@ -297,7 +274,6 @@ class BlobDetector(Node):
                 msg.data = self.object_frame_id
                 self.object_pub.publish(msg)
 
-                # Calculer la position dans le référentiel map
                 debris_pos_map = None
                 try:
                     tmap = self.tf_buffer.lookup_transform(self.map_frame_id, image_msg.header.frame_id, 
@@ -309,32 +285,27 @@ class BlobDetector(Node):
                 except Exception as e:
                     self.get_logger().warn(f"Map TF not available: {e}")
                 
-                # Vérifier si c'est un débris déjà traité (seulement si on n'est pas déjà en train de traiter un débris)
-                if debris_pos_map is not None and self.stop_until is None:
+                if debris_pos_map is not None and self.stop_until is None and self.approach_state == 'IDLE':
                     if self.is_debris_already_detected(debris_pos_map):
                         self.get_logger().debug("Débris déjà traité (< 1m d'un précédent), ignoré.")
                         return
 
-                # Centrage du blob dans l'image
                 img_center_x = cv_image.shape[1] / 2.0
                 blob_x_px = float(keypoints[closest_idx].pt[0])
                 error_x = blob_x_px - img_center_x
-                tolerance_px = 30  # tolérance en pixels
+                tolerance_px = 30
 
-                self.get_logger().info(f"Blob détecté: erreur x={error_x:.1f}px, distance={closest_depth:.2f}m")
+                self.get_logger().info(f"Blob détecté: erreur x={error_x:.1f}px, distance={closest_depth:.2f}m, état={self.approach_state}")
 
                 twist = Twist()
                 current_time = self.get_clock().now()
 
-                # Si en période d'attente de 5 secondes
                 if self.stop_until is not None:
                     if current_time < self.stop_until:
-                        # Rester immobile
                         twist.linear.x = 0.0
                         twist.angular.z = 0.0
                         remaining = (self.stop_until - current_time).nanoseconds / 1e9
                         
-                        # Appeler replan_path une seule fois au début de l'attente
                         if not self.replan_requested:
                             self.call_replan_service()
                         
@@ -342,7 +313,6 @@ class BlobDetector(Node):
                         self.cmd_vel_pub.publish(twist)
                         return
                     else:
-                        # Période terminée, MAINTENANT enregistrer le débris dans la liste
                         if self.current_debris_position is not None:
                             self.detected_debris_positions.append(self.current_debris_position)
                             self.get_logger().info(f"Débris confirmé à [{self.current_debris_position[0]:.2f}, {self.current_debris_position[1]:.2f}]")
@@ -351,64 +321,91 @@ class BlobDetector(Node):
                         self.stop_until = None
                         self.photo_taken = False
                         self.current_debris_position = None
-                        self.replan_requested = False  # Réinitialiser pour le prochain débris
-                        # Sortir pour que la prochaine frame vérifie si c'est un débris déjà traité
+                        self.replan_requested = False
+                        self.approach_state = 'IDLE'
                         return
 
-                # Vérifier si on est à moins de 2 mètres ET centré
-                if closest_depth <= 2.0 and abs(error_x) <= tolerance_px:
-                    # Conditions remplies : arrêter et prendre photo
+                if self.approach_state == 'IDLE':
+                    if abs(error_x) <= tolerance_px:
+                        if closest_depth < 2.0:
+                            self.approach_state = 'BACKING_UP'
+                            self.initial_backup_distance = closest_depth
+                            self.backup_start_time = current_time
+                            self.get_logger().info(f"Centré mais trop proche ({closest_depth:.2f}m), début du recul")
+                        else:
+                            self.approach_state = 'APPROACHING'
+                            self.get_logger().info("Centré et distance OK, début de l'approche")
+                    else:
+                        ang_gain = 0.003
+                        twist.angular.z = float(-ang_gain * error_x)
+                        twist.linear.x = 0.15
+                        self.get_logger().info(f"Centrage initial: erreur={error_x:.1f}px")
+                        self.cmd_vel_pub.publish(twist)
+                
+                elif self.approach_state == 'BACKING_UP':
+                    dt = (current_time - self.backup_start_time).nanoseconds / 1e9
+                    distance_backed = 0.3 * dt
+                    current_distance = self.initial_backup_distance + distance_backed
+                    
+                    if current_distance >= 2.0:
+                        twist.linear.x = 0.0
+                        twist.angular.z = 0.0
+                        self.approach_state = 'TAKING_PHOTO'
+                        self.get_logger().info("Distance de 2m atteinte, arrêt pour photo")
+                        self.cmd_vel_pub.publish(twist)
+                    else:
+                        if abs(error_x) > tolerance_px:
+                            ang_gain = 0.002
+                            twist.angular.z = float(-ang_gain * error_x)
+                        else:
+                            twist.angular.z = 0.0
+                        
+                        twist.linear.x = -0.3
+                        self.get_logger().info(f"Recul en cours: {current_distance:.2f}m / 2.0m")
+                        self.cmd_vel_pub.publish(twist)
+                
+                elif self.approach_state == 'APPROACHING':
+                    if abs(error_x) > tolerance_px:
+                        ang_gain = 0.003
+                        twist.angular.z = float(-ang_gain * error_x)
+                        twist.linear.x = 0.15
+                        self.get_logger().info(f"Approche + centrage: {closest_depth:.2f}m")
+                        self.cmd_vel_pub.publish(twist)
+                    elif closest_depth > 2.0:
+                        twist.linear.x = 0.20
+                        twist.angular.z = 0.0
+                        self.get_logger().info(f"Approche (centré): {closest_depth:.2f}m")
+                        self.cmd_vel_pub.publish(twist)
+                    else:
+                        twist.linear.x = 0.0
+                        twist.angular.z = 0.0
+                        self.approach_state = 'TAKING_PHOTO'
+                        self.get_logger().info("Distance de 2m atteinte, arrêt pour photo")
+                        self.cmd_vel_pub.publish(twist)
+                
+                elif self.approach_state == 'TAKING_PHOTO':
                     twist.linear.x = 0.0
                     twist.angular.z = 0.0
                     self.cmd_vel_pub.publish(twist)
                     
                     if not self.photo_taken:
-                        # Prendre la photo
                         debris_id = len(self.detected_debris_positions) + 1
                         self.save_photo(cv_image, debris_id)
                         self.photo_taken = True
                         
-                        # Stocker temporairement la position (sera ajoutée à la liste après les 5s)
                         if debris_pos_map is not None:
                             self.current_debris_position = debris_pos_map
                             self.get_logger().info(f"Photo du débris à [{debris_pos_map[0]:.2f}, {debris_pos_map[1]:.2f}]")
                             self.report_debris_service(self.current_debris_position, f"debris_{debris_id}.jpg")
                     
-                        # Démarrer le timer de 5 secondes
                         self.stop_until = current_time + Duration(seconds=5.0)
                         self.get_logger().info("Photo prise! Attente de 5 secondes...")
-                    
-                elif closest_depth > 2.0:
-                    # Trop loin : avancer en centrant
-                    ang_gain = 0.003
-                    twist.angular.z = float(-ang_gain * error_x)
-                    
-                    if abs(error_x) > tolerance_px:
-                        # Pas centré : avancer lentement
-                        twist.linear.x = 0.15
-                        self.get_logger().info(f"Approche + centrage: {closest_depth:.2f}m, erreur={error_x:.1f}px")
-                    else:
-                        # Centré : avancer plus vite
-                        twist.linear.x = 0.20
-                        self.get_logger().info(f"Approche (centré): {closest_depth:.2f}m")
-                    
-                    self.cmd_vel_pub.publish(twist)
-                    
-                else:
-                    # Distance OK (< 2m) mais pas centré : rotation sur place
-                    ang_gain = 0.004
-                    twist.linear.x = 0.0
-                    twist.angular.z = float(-ang_gain * error_x)
-                    self.get_logger().info(f"Centrage final: erreur={error_x:.1f}px à {closest_depth:.2f}m")
-                    self.cmd_vel_pub.publish(twist)
 
             else:
                 self.get_logger().debug(f"Depth {closest_depth:.2f}m hors limites")
         else:
-            # Pas de blob détecté
             current_time = self.get_clock().now()
             
-            # Si on est en période d'attente, continuer à attendre
             if self.stop_until is not None:
                 if current_time < self.stop_until:
                     twist = Twist()
@@ -416,14 +413,12 @@ class BlobDetector(Node):
                     twist.angular.z = 0.0
                     remaining = (self.stop_until - current_time).nanoseconds / 1e9
                     
-                    # Appeler replan_path une seule fois
                     if not self.replan_requested:
                         self.call_replan_service()
                     
                     self.get_logger().info(f"Attente (pas de blob visible): {remaining:.1f}s restantes")
                     self.cmd_vel_pub.publish(twist)
                 else:
-                    # Attente terminée, enregistrer le débris
                     if self.current_debris_position is not None:
                         self.detected_debris_positions.append(self.current_debris_position)
                         self.get_logger().info(f"Débris confirmé à [{self.current_debris_position[0]:.2f}, {self.current_debris_position[1]:.2f}]")
@@ -432,13 +427,12 @@ class BlobDetector(Node):
                     self.stop_until = None
                     self.photo_taken = False
                     self.current_debris_position = None
-                    self.replan_requested = False  # Réinitialiser pour le prochain débris
-                    # Sortir pour éviter de retraiter immédiatement
+                    self.replan_requested = False
+                    self.approach_state = 'IDLE'
                     return
             else:
                 self.get_logger().debug("Aucun blob valide détecté")
 
-        # publish debug image
         try:
             debug_img = cv2.bitwise_and(cv_image, cv_image, mask=mask)
             self.image_pub.publish(self.bridge.cv2_to_imgmsg(debug_img, "bgr8"))

@@ -12,12 +12,15 @@ class ReportHandler(Node):
         self.srv = self.create_service(ReportDebris, 'report_debris', self.report_callback)
         self.reports = []
         
-        # File setup
-        self.report_file = os.path.expanduser('~/debris_report.txt')
+        # Folder and file setup
+        self.report_dir = os.path.expanduser('~/debris_report')
+        os.makedirs(self.report_dir, exist_ok=True)  # Create folder if it doesn't exist
+        
+        self.report_file = os.path.join(self.report_dir, 'debris_report.txt')
         
         # Overwrite file on startup (mode 'w')
         with open(self.report_file, 'w') as f:
-            pass # Create/Clear file
+            pass  # Create/Clear file
             
         self.get_logger().info(f'Report Handler Service Ready. Writing to {self.report_file}')
 
@@ -30,7 +33,6 @@ class ReportHandler(Node):
             self.reports.append(report_entry)
             
             # Write to file
-            # Format: x y photo.png trajectory.bmp
             log_line = f"{request.position.x:.2f} {request.position.y:.2f} {request.photo_filename} trajectory.bmp\n"
             with open(self.report_file, 'a') as f:
                 f.write(log_line)

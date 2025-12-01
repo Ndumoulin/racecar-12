@@ -40,7 +40,7 @@ class PathFollowing(Node):
         # U-turn state machine
         self.uturn_stage = 0  # 0: backward+right, 1: left+straight
         self.uturn_start_time = None
-        self.uturn_backward_duration = 8  # seconds to go backward
+        self.uturn_backward_duration = 5  # seconds to go backward
         self.uturn_forward_duration = 2  # seconds to go forward
         self.uturn_speed = 0.3
         self.uturn_steering = 0.5
