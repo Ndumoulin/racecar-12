@@ -3,13 +3,21 @@
 import rclpy
 from rclpy.node import Node
 from racecar_interfaces.srv import ReportDebris
+import os
+from datetime import datetime
 
 class ReportHandler(Node):
     def __init__(self):
         super().__init__('report_handler')
         self.srv = self.create_service(ReportDebris, 'report_debris', self.report_callback)
         self.reports = []
-        self.get_logger().info('Report Handler Service Ready.')
+        
+        # File setup
+        self.report_file = os.path.expanduser('~/debris_report.txt')
+        with open(self.report_file, 'a') as f:
+            f.write(f"\n--- Session Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---\n")
+            
+        self.get_logger().info(f'Report Handler Service Ready. Writing to {self.report_file}')
 
     def report_callback(self, request, response):
         try:
@@ -19,11 +27,15 @@ class ReportHandler(Node):
             }
             self.reports.append(report_entry)
             
-            self.get_logger().info(f"New Report Received: Photo={request.photo_filename}, Pos={report_entry['position']}")
-            self.get_logger().info(f"Total Reports: {len(self.reports)}")
+            # Write to file
+            log_line = f"Photo: {request.photo_filename}, Position: ({request.position.x:.2f}, {request.position.y:.2f})\n"
+            with open(self.report_file, 'a') as f:
+                f.write(log_line)
+            
+            self.get_logger().info(f"New Report Logged: {log_line.strip()}")
             
             response.success = True
-            response.message = f"Report stored. Total: {len(self.reports)}"
+            response.message = f"Report stored and written to file. Total: {len(self.reports)}"
         except Exception as e:
             self.get_logger().error(f"Failed to store report: {e}")
             response.success = False
