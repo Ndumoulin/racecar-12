@@ -289,7 +289,7 @@ class BlobDetector(Node):
                 img_center_x = cv_image.shape[1] / 2.0
                 blob_x_px = float(keypoints[closest_idx].pt[0])
                 error_x = blob_x_px - img_center_x
-                tolerance_px = 15  # tolérance en pixels
+                tolerance_px = 30  # tolérance en pixels
 
                 self.get_logger().info(f"Blob détecté: erreur x={error_x:.1f}px, distance={closest_depth:.2f}m")
 
