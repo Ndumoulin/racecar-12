@@ -16,8 +16,8 @@ class AStarPlanner(Node):
         super().__init__("path_planner")
  
         # Goal coordinates (can be updated via subscriber)
-        self.goal_x = 13.5
-        self.goal_y = 2.1
+        self.goal_x = 7.90
+        self.goal_y = -14.5
         self.goal_updated = False
  
         # TF
