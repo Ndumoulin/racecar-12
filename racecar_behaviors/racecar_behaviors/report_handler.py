@@ -11,6 +11,7 @@ class ReportHandler(Node):
         super().__init__('report_handler')
         self.srv = self.create_service(ReportDebris, 'report_debris', self.report_callback)
         self.reports = []
+        self.object_id = 1
         
         # Folder and file setup
         self.report_dir = os.path.expanduser('~/debris_report')
@@ -33,7 +34,8 @@ class ReportHandler(Node):
             self.reports.append(report_entry)
             
             # Write to file
-            log_line = f"{request.position.x:.2f} {request.position.y:.2f} {request.photo_filename} trajectory.bmp\n"
+            log_line = f"{request.position.x:.2f} {request.position.y:.2f} {request.photo_filename} trajectory_object_{self.object_id}\n"
+            self.object_id += 1
             with open(self.report_file, 'a') as f:
                 f.write(log_line)
             

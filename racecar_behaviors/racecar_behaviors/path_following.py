@@ -36,6 +36,7 @@ class PathFollowing(Node):
         self.current_yaw = 0.0
         self.scan_data = None
         self.step = 0  # 0: request initial path, 1: going to goal, 2: uturn, 3: go to 0,0
+        self.uturn_done = False
         
         # U-turn state machine
         self.uturn_stage = 0  # 0: backward+right, 1: left+straight
@@ -282,9 +283,10 @@ class PathFollowing(Node):
 
     def do_uturn(self):
         """Start U-turn maneuver"""
-        self.uturn_stage = 0
-        self.uturn_start_time = self.get_clock().now()
-        self.get_logger().info('Starting U-turn maneuver: backward with right steering')
+        if not self.uturn_done:
+            self.uturn_stage = 0
+            self.uturn_start_time = self.get_clock().now()
+            self.get_logger().info('Starting U-turn maneuver: backward with right steering')
 
     def request_path_to_origin(self):
         self.goal_x = 0.0
@@ -365,6 +367,7 @@ class PathFollowing(Node):
                 else:
                     # U-turn complete
                     self.uturn_start_time = None
+                    self.uturn_done = True
                     self.get_logger().info('U-turn completed!')
                     self.request_path_to_origin()  # Request path to (0, 0)
                     twist.linear.x = 0.0

@@ -7,7 +7,6 @@ import numpy as np
 from nav_msgs.srv import GetMap
 from PIL import Image
 import os
-from datetime import datetime
 
 class PathToBitmapNode(Node):
     def __init__(self):
@@ -22,6 +21,7 @@ class PathToBitmapNode(Node):
             self.get_logger().info('Map service not available, waiting...')
 
         self.latest_map = None
+        self.object_id = 1
 
         # Fetch map once at startup
         self.update_map()
@@ -57,8 +57,8 @@ class PathToBitmapNode(Node):
             os.makedirs(report_dir, exist_ok=True)
 
             # Unique file name
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filepath = os.path.join(report_dir, f"trajectory_{timestamp}.bmp")
+            filepath = os.path.join(report_dir, f"trajectory_object_{self.object_id}.bmp")
+            self.object_id += 1
 
             grid = self.latest_map["grid"]
             h, w = grid.shape

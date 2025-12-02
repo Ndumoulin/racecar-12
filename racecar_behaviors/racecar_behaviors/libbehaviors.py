@@ -35,8 +35,8 @@ def multiply_transforms(trans1, rot1, trans2, rot2):
 
 def brushfire(occupancyGrid):
     mapOfWorld = np.zeros(occupancyGrid.shape, dtype=int)
-    # 0 = Chemin, 100 = Unknown, -1 = obstacle
-    mapOfWorld[occupancyGrid==100] = 1 # set all unknowns and obstacles to -1
+    # 0 = Path, 100 = Unknown, -1 = obstacle
+    mapOfWorld[occupancyGrid==100] = 1 # set all unknowns and obstacles to 1
     mapOfWorld[occupancyGrid==-1] = 1 
     
     # do brushfire algorithm here
@@ -59,7 +59,7 @@ def brushfire(occupancyGrid):
                         
         a += 1
     
-    # brushfire: -1 = obstacle or unknown, safer cells have higher value)
+    # brushfire: 1 = obstacle or unknown, safer cells have higher value)
     
     return mapOfWorld 
 
@@ -73,25 +73,25 @@ def wavefront(occupancyGrid, goal):
  
     nRows, nCols = mapOfWorld.shape
  
-    # --- INITIALISATION ---
+    # --- INITIALIZATION ---
     goal_r, goal_c = goal
  
     if mapOfWorld[goal_r, goal_c] == 1:
-        raise ValueError("Goal est un obstacle !")
+        raise ValueError("Goal is an obstacle!")
  
-    # on démarre le wavefront
-    mapOfWorld[goal_r, goal_c] = 2  # valeur de départ (peut être 1)
+    # start wavefront
+    mapOfWorld[goal_r, goal_c] = 2  # start value (can be 1)
  
     a = 2
  
-    # --- PROPAGATION WAVEFRONT  ---
+    # --- WAVEFRONT PROPAGATION ---
     while True:
         changed = False
  
         for r in range(nRows):
             for c in range(nCols):
                 if mapOfWorld[r, c] == a:
-                    # VOISINS
+                    # NEIGHBORS
                     if r > 0 and mapOfWorld[r-1, c] == 0:
                         mapOfWorld[r-1, c] = a + 1
                         changed = True
@@ -123,27 +123,44 @@ def combine_maps(map_wavefront, map_brushfire, alpha):
                 combine_maps[i][j] = map_wavefront[i][j] + alpha * map_brushfire[i][j]
     return combine_maps
 
-def path_function(combined_map, start, goal):
-    path_maps = np.zeros(combined_map.shape, dtype=int)
-
-    value = []
-    path=[]
+def extract_path_from_combined(combined_map, start, goal):
+    path = []
     current = start
     path.append(current)
+    
+    rows, cols = combined_map.shape
+    
     while current != goal:
-        r, c =current
-        neighbors = []
-        if combined_map[r-1][c] != 1:
-            neighbors.append(combined_map[r-1][c])
-        if combined_map[r+1][c] != 1:
-            neighbors.append(combined_map[r+1][c])
-        if combined_map[r][c-1] != 1:
-            neighbors.append(combined_map[r][c-1])
-        if combined_map[r][c+1] != 1:
-            neighbors.append(combined_map[r][c+1])
-
-        current = min(neighbors)
+        r, c = current
+        
+        # Find neighbor with minimum value
+        min_val = float('inf')
+        next_node = None
+        
+        # 4-connectivity
+        neighbors = [
+            (r-1, c), (r+1, c), 
+            (r, c-1), (r, c+1)
+        ]
+        
+        for nr, nc in neighbors:
+            if 0 <= nr < rows and 0 <= nc < cols:
+                val = combined_map[nr, nc]
+                if val != 1 and val < min_val: # 1 is obstacle
+                    min_val = val
+                    next_node = (nr, nc)
+        
+        if next_node is None or next_node == current:
+            # Stuck or reached local minimum
+            break
+            
+        current = next_node
         path.append(current)
+        
+        if len(path) > rows * cols: # Safety break
+            break
+            
+    return path
 
 
 
