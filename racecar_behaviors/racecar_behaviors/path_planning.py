@@ -69,23 +69,23 @@ class Path_Planning(Node):
     # ...existing code...
     def export_path_map(self, combined_map, path):
         """
-        Sauvegarde combined_map en BMP et dessine le chemin optimal en noir.
+        Saves combined_map as BMP and draws the optimal path in black.
         """
-        # Normalisation pour affichage
+        # Normalization for display
         maximum = np.amax(combined_map)
         mask = combined_map == 1
         img = combined_map.astype(float) / float(maximum) * 225.0 + 30.0
         img[mask] = 0
         img = img.astype(np.uint8)
 
-        # Convertir en image couleur (BGR)
+        # Convert to color image (BGR)
         img_color = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
-        # Dessiner le chemin en noir (BGR: [0, 0, 0])
+        # Draw path in black (BGR: [0, 0, 0])
         for (r, c) in path:
             img_color[r, c] = [0]
 
-        # Flip pour correspondre à l'orientation RVIZ
+        # Flip to match RVIZ orientation
         img_color = cv2.transpose(cv2.flip(img_color, -1))
         cv2.imwrite('path_on_combined.bmp', img_color)
         self.get_logger().info("Exported path_on_combined.bmp")
@@ -110,16 +110,16 @@ class Path_Planning(Node):
         self.export_brushfire_map(brushfire_map)
         self.export_grid_map(grid)
 
-        # Ajout : calcul et export de la carte wavefront
-        goal = (60, 200)  # exemple : centre de la carte
+        # Addition: calculate and export wavefront map
+        goal = (60, 200)  # example: center of the map
         wavefront_map = wavefront(grid, goal)
         self.export_wavefront_map(wavefront_map)
 
-        alpha = 5.0  # pondération pour la carte combinée
+        alpha = 5.0  # weight for combined map
         combined_map = combine_maps(wavefront_map, brushfire_map, alpha)
         self.export_combined_map(combined_map)
 
-        start = (0, 0)  # exemple : point de départ
+        start = (0, 0)  # example: start point
         path = extract_path_from_combined(combined_map, start, goal=goal)
         self.export_path_map(combined_map, path)
 

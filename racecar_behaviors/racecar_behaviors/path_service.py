@@ -149,7 +149,7 @@ class AStarPlannerService(Node):
         if cost < 0 or cost >= 100:
             return 1000  # avoid unknown/lethal cells
 
-        # Quadratic penalty (0 free → 0, 100 → big)
+        # Quadratic penalty (0 free -> 0, 100 -> big)
         return (cost / 100.0) ** 2 * 5.0
 
     # -------------------------
