@@ -241,56 +241,25 @@ class BlobDetector(Node):
         except Exception as e:
             self.get_logger().error(f"Error calling plan service: {e}")
 
-    # -------------------------
-    #   Bitmap service helper
-    # -------------------------
     def call_bitmap_service(self, path_msg):
-        """
-        path_msg: expected nav_msgs/Path (Path instance)
-        The PathToBitmap.srv may accept either a Path or a list of Pose/PoseStamped.
-        We try a few assignments to be robust.
-        """
         if not self.bitmap_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().warn("Bitmap service not available: path_to_bitmap")
             return
 
         req = PathToBitmap.Request()
 
-        # Try to set request in several forms to handle different .srv definitions:
-        # 1) service expects a nav_msgs/Path
-        # 2) service expects a sequence of PoseStamped (Path.poses)
-        # 3) service expects a sequence of Pose (extract .pose)
-        assigned = False
-        try:
-            # Attempt 1: assign the full Path
-            req.path = path_msg
-            assigned = True
-        except Exception:
-            pass
-
-        if not assigned:
-            try:
-                # Attempt 2: assign list of PoseStamped
-                req.path = path_msg.poses
-                assigned = True
-            except Exception:
-                pass
-
-        if not assigned:
-            try:
-                # Attempt 3: assign list of Pose
-                req.path = [ps.pose for ps in path_msg.poses]
-                assigned = True
-            except Exception:
-                pass
-
-        if not assigned:
-            self.get_logger().error("Failed to populate PathToBitmap request: incompatible srv field 'path'.")
+        if hasattr(path_msg, 'poses') and len(path_msg.poses) > 0:
+            # Convert PoseStamped -> Pose
+            req.path = [p.pose for p in path_msg.poses]  
+            self.get_logger().info(f"Assigned path with {len(req.path)} poses")
+        else:
+            self.get_logger().error("Path message has no poses. Cannot send to bitmap service.")
             return
 
-        self.get_logger().info("Sending path to bitmap generator service...")
         future = self.bitmap_client.call_async(req)
         future.add_done_callback(self.bitmap_response_callback)
+
+
 
     def bitmap_response_callback(self, future):
         try:
@@ -531,10 +500,13 @@ class BlobDetector(Node):
                             self.get_logger().info(f"Photo du débris à [{debris_pos_map[0]:.2f}, {debris_pos_map[1]:.2f}]")
                             self.report_debris_service(self.current_debris_position, f"debris_{debris_id}.jpg")
 
-                            # --- NEW behavior: request A* path then generate bitmap ---
+                            # --- request A* path / bitmap asynchronously ---
                             try:
-                                # call planner (A*) which will call plan_callback when done
-                                self.call_plan_service(self.current_debris_position)
+                                if self.plan_client.service_is_ready():
+                                    self.call_plan_service(self.current_debris_position)
+                                else: 
+                                    self.get_logger().warn("Plan service not ready; skipping A* request for now")
+                                
                             except Exception as e:
                                 self.get_logger().error(f"Failed to request path: {e}")
                         
