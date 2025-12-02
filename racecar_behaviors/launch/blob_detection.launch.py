@@ -47,7 +47,7 @@ def launch_setup(context, *args, **kwargs):
             ('camera_info', 'racecar/camera_info'),
             ('depth', 'raspicam_node/depth_registered')],
         parameters=[{'map_frame_id': 'racecar/map', 'frame_id': 'racecar/base_footprint',
-                     'object_frame_id': 'racecar/object', 'color_hue': 100}]
+                     'object_frame_id': 'racecar/object', 'color_hue': 120}]
     )
     
     path_to_bitmap_node = Node(

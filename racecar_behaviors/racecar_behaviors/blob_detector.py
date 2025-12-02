@@ -39,8 +39,8 @@ class BlobDetector(Node):
         self.map_frame_id = self.declare_parameter('map_frame_id', 'map').value
         self.frame_id = self.declare_parameter('frame_id', 'base_link').value
         self.object_frame_id = self.declare_parameter('object_frame_id', 'object').value
-        self.color_hue = self.declare_parameter('color_hue', 100).value
-        self.color_range = self.declare_parameter('color_range', 20).value
+        self.color_hue = self.declare_parameter('color_hue', 120).value # 100
+        self.color_range = self.declare_parameter('color_range', 30).value # 20
         self.color_saturation = self.declare_parameter('color_saturation', 100).value
         self.color_value = self.declare_parameter('color_value', 1).value
         self.border = self.declare_parameter('border', 1).value
