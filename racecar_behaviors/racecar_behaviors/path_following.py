@@ -27,8 +27,8 @@ class PathFollowing(Node):
         self.wheelbase = self.declare_parameter('wheelbase', 0.32).value  # Distance entre essieux
         
         # Goal coordinates
-        self.goal_x = 7.90
-        self.goal_y = -14.5
+        self.goal_x = 15.90
+        self.goal_y = 15.5
         
         # State
         self.current_path = None
