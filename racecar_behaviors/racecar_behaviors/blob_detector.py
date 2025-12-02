@@ -29,7 +29,6 @@ import tf_transformations
 from visualization_msgs.msg import Marker
 from racecar_behaviors.libbehaviors import *
 import os
-from datetime import datetime
 
 class BlobDetector(Node):
     def __init__(self):
@@ -142,7 +141,7 @@ class BlobDetector(Node):
        
         future = self.report_client.call_async(request)
         future.add_done_callback(self.report_callback)
- 
+
     def report_callback(self, future):
         try:
             response = future.result()
@@ -154,8 +153,7 @@ class BlobDetector(Node):
             self.get_logger().error(f"Erreur lors du report: {e}")
 
     def save_photo(self, cv_image, debris_id):
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = os.path.join(self.photo_dir, f"debris_{debris_id}_{timestamp}.jpg")
+        filename = os.path.join(self.photo_dir, f"debris_{debris_id}.jpg")
         cv2.imwrite(filename, cv_image)
         self.get_logger().info(f"Photo sauvegardée: {filename}")
         return filename
